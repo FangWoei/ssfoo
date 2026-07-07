@@ -1,0 +1,138 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // ── Settings ────────────────────────────────────
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Users ───────────────────────────────────────────
+    match /users/{userId} {
+      allow create: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // ── Products (public read, admin full write, users can update stock only) ──
+    match /products/{productId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() ||
+        (isSignedIn() &&
+         request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['variants']));
+    }
+
+    // ── Categories (public read, admin write) ──────────
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── Orders ──────────────────────────────────────────
+    match /orders/{orderId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+
+      // ✅ Internal notes — admin only
+      match /notes/{noteId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    // ── Carts (own cart only) ──────────────────────────
+    match /carts/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ── Wishlists (own wishlist only) ──────────────────
+    match /wishlists/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ── Reviews ─────────────────────────────────────────
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ── Promo Codes ─────────────────────────────────────
+    match /promoCodes/{codeId} {
+      allow read: if isSignedIn();
+      allow create, delete: if isAdmin();
+      // Admin can update anything; signed-in users can ONLY update claimedCount or usedCount
+      allow update: if isAdmin() ||
+        (isSignedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['claimedCount', 'usedCount']));
+    }
+
+    // ── Promo Attempts (rate limiting) ──────────────────
+    match /promoAttempts/{userId} {
+      // User can read/write only their own attempt record
+      allow read, write: if isOwner(userId);
+    }
+
+    // ── User Vouchers ───────────────────────────────────
+    match /userVouchers/{voucherId} {
+      allow read: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() ||
+        (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // ── Chats ───────────────────────────────────────────
+    match /chats/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create: if isSignedIn() &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // ── Notifications (per user) ────────────────────────
+    match /notifications/{userId} {
+      // Allow access to parent doc (even though we don't really use it)
+      allow read, write: if isOwner(userId);
+
+      match /items/{notifId} {
+        // User can read/update/delete their own notifications
+        allow read, update, delete: if isOwner(userId);
+        // Any signed-in user can CREATE notifications for any user
+        // (admins create order/chat notifications for customers;
+        //  customers create order notifications for admins)
+        allow create: if isSignedIn();
+      }
+    }
+  }
+}
