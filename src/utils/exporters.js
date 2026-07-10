@@ -138,7 +138,7 @@ export const printOrderPDF = (
     .remarks { margin-top: 20px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 12px; }
     .foot { margin-top: 40px; text-align: center; color: #94a3b8; font-size: 11px; }
   </style></head><body>
-    <h1>Ssfoo</h1>
+    <h1>SS FOO</h1>
     <div class="sub">Outlet Ordering Portal — Order Summary</div>
     <div class="row">
       ${contactBlock}

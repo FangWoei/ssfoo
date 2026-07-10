@@ -50,7 +50,7 @@ export default function Navbar() {
           <Link
             to="/shop"
             className="font-display text-2xl font-bold text-primary-600 tracking-tight">
-            SSFOO.SDN.BHD
+            SS FOO.SDN.BHD
           </Link>
 
           {/* Desktop Nav */}

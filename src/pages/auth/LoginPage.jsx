@@ -134,12 +134,12 @@ export default function LoginPage() {
         <div className="relative flex items-center gap-3">
           <img
             src={logo}
-            alt="Ssfoo"
+            alt="SS FOO"
             className="w-11 h-11 rounded-2xl object-cover ring-2 ring-white/30"
           />
           <div>
             <p className="font-display text-xl font-bold text-white leading-none">
-              SSFOO SDN. BHD.
+              SS FOO SDN. BHD.
             </p>
             <p className="text-primary-200 text-xs mt-1">
               Outlet Ordering Portal
@@ -173,7 +173,8 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="relative text-primary-200/60 text-xs">
-          © {new Date().getFullYear()} SSFOO SDN. BHD. · Authorized outlets only
+          © {new Date().getFullYear()} SS FOO SDN. BHD. · Authorized outlets
+          only
         </p>
       </div>
 
@@ -193,7 +194,7 @@ export default function LoginPage() {
           {/* Mobile brand name */}
           <div className="lg:hidden text-center mb-4">
             <h1 className="font-display text-2xl font-bold text-primary-600">
-              SSFOO SDN. BHD.
+              SS FOO SDN. BHD.
             </h1>
             <p className="text-dark-400 text-xs mt-1">Outlet Ordering Portal</p>
           </div>
@@ -346,7 +347,7 @@ export default function LoginPage() {
           <p className="text-center text-xs text-dark-400 mt-8">
             No account?{" "}
             <span className="text-dark-500 dark:text-dark-300">
-              Outlet accounts are created by the admin — contact SSFOO to get
+              Outlet accounts are created by the admin — contact SS FOO to get
               access.
             </span>
           </p>
