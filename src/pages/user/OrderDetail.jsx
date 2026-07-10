@@ -2,14 +2,16 @@
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import { useAuth } from "@/context/AuthContext";
 import { getOrder } from "@/firebase/orders";
+import { printOrderPDF } from "@/utils/exporters";
 import { formatPrice } from "@/utils/helpers";
 import { formatOrderDate, shortId } from "@/utils/orderHelpers";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { FiArrowLeft, FiFileText, FiPackage } from "react-icons/fi";
+import { FiArrowLeft, FiFileText, FiPackage, FiPrinter } from "react-icons/fi";
 import { Link, useParams } from "react-router-dom";
 
-const PLACEHOLDER = "https://placehold.co/200x200/ccfbf1/0d9488?text=Item";
+const PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' rx='12' fill='%23ccfbf1'/%3E%3Ctext x='48' y='62' font-size='38' text-anchor='middle'%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E";
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -71,7 +73,7 @@ export default function OrderDetail() {
           title="Back to orders">
           <FiArrowLeft size={18} />
         </Link>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
             {shortId(order.id)}
           </h1>
@@ -79,6 +81,11 @@ export default function OrderDetail() {
             Placed {formatOrderDate(order.createdAt)}
           </p>
         </div>
+        <button
+          onClick={() => printOrderPDF(order, { forAdmin: false })}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-500 transition-colors shrink-0">
+          <FiPrinter size={15} /> PDF
+        </button>
       </div>
 
       <div className="grid lg:grid-cols-[1fr_300px] gap-5 items-start">
@@ -94,6 +101,9 @@ export default function OrderDetail() {
                   <img
                     src={item.image || PLACEHOLDER}
                     alt={item.name}
+                    onError={(e) => {
+                      e.currentTarget.src = PLACEHOLDER;
+                    }}
                     className="w-12 h-12 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0"
                   />
                   <div className="flex-1 min-w-0">
@@ -102,6 +112,12 @@ export default function OrderDetail() {
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {formatPrice(item.price)} × {item.qty}
+                      {item.uom ? ` ${item.uom}` : ""}
+                      {item.foc > 0 && (
+                        <span className="ml-1.5 font-bold text-teal-600 dark:text-teal-400">
+                          🎁 +{item.foc} FOC
+                        </span>
+                      )}
                     </p>
                   </div>
                   <span className="text-sm font-bold text-slate-900 dark:text-slate-100 shrink-0">

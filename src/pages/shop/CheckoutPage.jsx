@@ -1,6 +1,7 @@
 // src/pages/shop/CheckoutPage.jsx
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
+import { sendOrderEmails } from "@/firebase/email";
 import { placeOrder } from "@/firebase/orders";
 import { formatPrice } from "@/utils/helpers";
 import { useRef, useState } from "react";
@@ -32,7 +33,7 @@ export default function CheckoutPage() {
 
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
   const totalItems = items.reduce((s, i) => s + i.qty, 0);
-  const getMoq = (item) => Math.max(1, item.moq ?? item.minOrderQty ?? 1);
+  const getMoq = (item) => Math.max(1, item.minOrder ?? item.moq ?? 1);
 
   // Guard: nothing to checkout (skip after a successful order)
   if (items.length === 0 && !placedRef.current) {
@@ -67,10 +68,16 @@ export default function CheckoutPage() {
         outletName,
         items: items.map((i) => ({
           productId: i.productId,
+          itemCode: i.itemCode || "",
           name: i.name,
-          image: i.image || "",
+          image: i.thumbnail || i.image || "",
           price: i.price,
           qty: i.qty,
+          uom: i.uom || "",
+          foc:
+            i.focBuy > 0 && i.focFree > 0
+              ? Math.floor(i.qty / i.focBuy) * i.focFree
+              : 0,
           note: (i.note || "").trim(),
         })),
         totalItems,
@@ -81,6 +88,9 @@ export default function CheckoutPage() {
       };
 
       const orderId = await placeOrder(user.uid, orderData);
+
+      // Fire confirmation emails (non-blocking, never throws)
+      sendOrderEmails(orderData, orderId, user.email);
 
       placedRef.current = true;
       clearCart();
@@ -159,7 +169,7 @@ export default function CheckoutPage() {
                 <div key={item.productId} className="py-3 first:pt-0 last:pb-0">
                   <div className="flex gap-3 items-center">
                     <img
-                      src={item.image || PLACEHOLDER}
+                      src={item.thumbnail || item.image || PLACEHOLDER}
                       alt={item.name}
                       className="w-12 h-12 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0"
                     />

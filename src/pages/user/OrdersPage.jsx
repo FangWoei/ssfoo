@@ -1,7 +1,7 @@
 // src/pages/user/OrdersPage.jsx
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import { useAuth } from "@/context/AuthContext";
-import { getOutletOrders } from "@/firebase/orders";
+import { getMyOrders } from "@/firebase/orders";
 import { formatPrice } from "@/utils/helpers";
 import { formatOrderDate, shortId } from "@/utils/orderHelpers";
 import { useEffect, useMemo, useState } from "react";
@@ -9,24 +9,25 @@ import toast from "react-hot-toast";
 import { FiArrowRight, FiPackage, FiSearch, FiX } from "react-icons/fi";
 import { Link } from "react-router-dom";
 
-const PLACEHOLDER = "https://placehold.co/100x100/ccfbf1/0d9488?text=Item";
+const PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' rx='12' fill='%23ccfbf1'/%3E%3Ctext x='48' y='62' font-size='38' text-anchor='middle'%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E";
 
 export default function OrdersPage() {
-  const { user, profile } = useAuth();
-  const outletId = profile?.outletId || user?.outletId;
+  const { user } = useAuth();
+  const uid = user?.uid;
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (!outletId) {
+    if (!uid) {
       setLoading(false);
       return;
     }
     (async () => {
       try {
-        const data = await getOutletOrders(outletId);
+        const data = await getMyOrders(uid);
         setOrders(data);
       } catch (e) {
         console.error("Load orders failed:", e);
@@ -35,7 +36,7 @@ export default function OrdersPage() {
         setLoading(false);
       }
     })();
-  }, [outletId]);
+  }, [uid]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return orders;
@@ -132,6 +133,9 @@ export default function OrdersPage() {
                           key={idx}
                           src={i.image || PLACEHOLDER}
                           alt={i.name}
+                          onError={(e) => {
+                            e.currentTarget.src = PLACEHOLDER;
+                          }}
                           className="w-9 h-9 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-900"
                         />
                       ))}

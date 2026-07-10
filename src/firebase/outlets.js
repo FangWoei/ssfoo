@@ -1,7 +1,10 @@
 // src/firebase/outlets.js
+import { deleteApp, initializeApp } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
+  getAuth,
   sendPasswordResetEmail,
+  signOut,
 } from "firebase/auth";
 import {
   collection,
@@ -14,9 +17,11 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
-import { auth, db } from "./config";
+import { auth, db, firebaseConfig } from "./config";
 
 // ── Create outlet account (admin only) ───────────────
+// Uses a SECONDARY Firebase app so creating the outlet's
+// auth account does NOT sign the admin out of the main app.
 export const createOutlet = async ({
   email,
   password,
@@ -24,30 +29,43 @@ export const createOutlet = async ({
   outletName,
   phone,
   address,
+  allowedBrands = [],
 }) => {
-  // 1. Create Firebase Auth account
-  const credential = await createUserWithEmailAndPassword(
-    auth,
-    email,
-    password,
-  );
-  const uid = credential.user.uid;
+  const secondaryApp = initializeApp(firebaseConfig, "outlet-creator");
+  const secondaryAuth = getAuth(secondaryApp);
 
-  // 2. Save to Firestore
-  await setDoc(doc(db, "users", uid), {
-    uid,
-    email,
-    outletId,
-    outletName,
-    phone: phone || "",
-    address: address || "",
-    role: "outlet",
-    active: true,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  try {
+    // 1. Create Firebase Auth account on the secondary app
+    const credential = await createUserWithEmailAndPassword(
+      secondaryAuth,
+      email,
+      password,
+    );
+    const uid = credential.user.uid;
 
-  return { uid, outletId, outletName };
+    // 2. Save profile to Firestore (main app — admin is still signed in)
+    await setDoc(doc(db, "users", uid), {
+      uid,
+      email,
+      outletId,
+      outletName,
+      phone: phone || "",
+      address: address || "",
+      allowedBrands,
+      role: "outlet",
+      active: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    // 3. Sign the new outlet out of the secondary app
+    await signOut(secondaryAuth);
+
+    return { uid, outletId, outletName };
+  } finally {
+    // 4. Clean up the secondary app
+    await deleteApp(secondaryApp).catch(() => {});
+  }
 };
 
 // ── Get all outlets ───────────────────────────────────

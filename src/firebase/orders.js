@@ -55,11 +55,13 @@ export const placeOrder = async (userId, orderData) => {
   return orderRef.id;
 };
 
-export const getOutletOrders = async (outletId) => {
+// Outlet's own orders — queried by userId so Firestore rules can
+// verify the query (rules allow: resource.data.userId == auth.uid)
+export const getMyOrders = async (userId) => {
   const snap = await getDocs(
     query(
       collection(db, COL),
-      where("outletId", "==", outletId),
+      where("userId", "==", userId),
       orderBy("createdAt", "desc"),
     ),
   );
@@ -76,13 +78,6 @@ export const getAllOrders = async ({ pageSize = 50 } = {}) => {
     query(collection(db, COL), orderBy("createdAt", "desc"), limit(pageSize)),
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-};
-
-export const updateOrderStatus = async (orderId, newStatus) => {
-  await updateDoc(doc(db, COL, orderId), {
-    status: newStatus,
-    updatedAt: serverTimestamp(),
-  });
 };
 
 export const toggleOrderDone = async (orderId, done) => {

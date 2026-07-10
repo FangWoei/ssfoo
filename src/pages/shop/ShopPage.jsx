@@ -1,8 +1,12 @@
 // src/pages/shop/ShopPage.jsx
+import RefreshControl from "@/components/common/RefreshControl";
+import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
 import { getCategories, getProducts } from "@/firebase/products";
 import { formatPrice, truncate } from "@/utils/helpers";
+import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
   FiGrid,
@@ -13,10 +17,12 @@ import {
   FiPlus,
   FiSearch,
   FiShoppingCart,
+  FiTag,
   FiX,
 } from "react-icons/fi";
 
 export default function ShopPage() {
+  const { profile, isAdmin } = useAuth();
   const addItem = useCartStore((s) => s.addItem);
   const cartItems = useCartStore((s) => s.items);
 
@@ -27,35 +33,66 @@ export default function ShopPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState("createdAt_desc");
+  const [brandFilter, setBrandFilter] = useState("all");
   const [modal, setModal] = useState(null); // product | null
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchShop = async () => {
+    const [cats, { products: prods }] = await Promise.all([
+      getCategories(),
+      getProducts({ pageSize: 100 }),
+    ]);
+    setCategories(cats);
+    setProducts(prods.filter((p) => p.status === "active"));
+  };
 
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       setLoading(true);
       try {
-        const [cats, { products: prods }] = await Promise.all([
-          getCategories(),
-          getProducts({ pageSize: 100 }),
-        ]);
-        setCategories(cats);
-        setProducts(prods.filter((p) => p.status === "active"));
+        await fetchShop();
       } catch {
         toast.error("Failed to load products");
       } finally {
         setLoading(false);
       }
-    };
-    load();
+    })();
   }, []);
 
-  const filtered = products
+  const doRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchShop();
+    } catch {
+      toast.error("Refresh failed");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // ── Per-outlet brand visibility ──
+  // Outlets with allowedBrands see only those brands (plus unbranded
+  // products). Empty/missing list, or admin browsing = see everything.
+  const allowed = profile?.allowedBrands;
+  const restricted = !isAdmin && Array.isArray(allowed) && allowed.length > 0;
+  const visibleProducts = restricted
+    ? products.filter((p) => !p.brand || allowed.includes(p.brand))
+    : products;
+
+  // Brands present among visible products (for the optional filter row)
+  const visibleBrands = [
+    ...new Set(visibleProducts.map((p) => p.brand).filter(Boolean)),
+  ].sort();
+
+  const filtered = visibleProducts
     .filter((p) => {
       const matchCat = category === "all" || p.category === category;
+      const matchBrand = brandFilter === "all" || p.brand === brandFilter;
       const matchSearch =
         !search ||
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.description?.toLowerCase().includes(search.toLowerCase());
-      return matchCat && matchSearch;
+      return matchCat && matchBrand && matchSearch;
     })
     .sort((a, b) => {
       if (sortBy === "price_asc") return a.basePrice - b.basePrice;
@@ -67,6 +104,14 @@ export default function ShopPage() {
   const getCartItem = (productId) =>
     cartItems.find((i) => i.productId === productId);
 
+  // Promotion products — only shown when not actively filtering (#5)
+  const promoProducts = visibleProducts.filter((p) => isOnPromo(p));
+  const showPromoRow =
+    promoProducts.length > 0 &&
+    !search &&
+    category === "all" &&
+    brandFilter === "all";
+
   const handleAdd = (product, qty) => {
     const min = product.minOrder || 1;
     if (qty < min) {
@@ -75,12 +120,18 @@ export default function ShopPage() {
     }
     addItem({
       productId: product.id,
+      itemCode: product.itemCode || "",
       name: product.name,
-      price: product.basePrice,
+      price: effectivePrice(product),
+      basePrice: product.basePrice,
+      onPromo: isOnPromo(product),
       qty,
       stock: product.stock || 0,
       thumbnail: product.images?.[0] || "",
       minOrder: min,
+      uom: product.uom || "",
+      focBuy: product.focBuy || 0,
+      focFree: product.focFree || 0,
       note: "",
     });
     toast.success(`${product.name} added!`);
@@ -90,13 +141,29 @@ export default function ShopPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-dark-900 dark:text-dark-100">
-            Products
-          </h1>
-          <p className="text-sm text-dark-400 mt-0.5">
-            {filtered.length} item{filtered.length !== 1 ? "s" : ""} available
-          </p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-display font-bold text-dark-900 dark:text-dark-100">
+              Products
+            </h1>
+            <p className="text-sm text-dark-400 mt-0.5">
+              {filtered.length} item{filtered.length !== 1 ? "s" : ""} available
+            </p>
+          </div>
+          <div className="sm:hidden">
+            <RefreshControl
+              onRefresh={doRefresh}
+              refreshing={refreshing}
+              storageKey="ssfoo-refresh-shop"
+            />
+          </div>
+        </div>
+        <div className="hidden sm:block">
+          <RefreshControl
+            onRefresh={doRefresh}
+            refreshing={refreshing}
+            storageKey="ssfoo-refresh-shop"
+          />
         </div>
         <div className="relative w-full sm:w-72">
           <FiSearch
@@ -174,7 +241,63 @@ export default function ShopPage() {
         </div>
       </div>
 
+      {/* ── Brand filter (shown only when 2+ brands visible) ── */}
+      {visibleBrands.length >= 2 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-dark-400 uppercase tracking-wide">
+            Brand
+          </span>
+          <button
+            onClick={() => setBrandFilter("all")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              brandFilter === "all"
+                ? "bg-dark-900 dark:bg-dark-100 text-white dark:text-dark-900"
+                : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"
+            }`}>
+            All
+          </button>
+          {visibleBrands.map((b) => (
+            <button
+              key={b}
+              onClick={() => setBrandFilter(b)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                brandFilter === b
+                  ? "bg-dark-900 dark:bg-dark-100 text-white dark:text-dark-900"
+                  : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"
+              }`}>
+              {b}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Products */}
+      {/* ── Promotions row (#5) ── */}
+      {!loading && showPromoRow && (
+        <div className="rounded-2xl border border-primary-200 dark:border-primary-800/60 bg-gradient-to-br from-primary-50 to-white dark:from-primary-900/20 dark:to-dark-900 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-600 text-white text-xs font-bold">
+              <FiTag size={13} /> Promotions
+            </div>
+            <span className="text-xs text-dark-400">
+              {promoProducts.length} special offer
+              {promoProducts.length > 1 ? "s" : ""}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {promoProducts.map((p) => (
+              <ProductCard
+                key={`promo-${p.id}`}
+                product={p}
+                cartItem={getCartItem(p.id)}
+                onAdd={handleAdd}
+                onInfo={() => setModal(p)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {[...Array(8)].map((_, i) => (
@@ -271,9 +394,16 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
           className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 dark:bg-dark-800/90 flex items-center justify-center text-dark-500 hover:text-primary-600 shadow transition-colors">
           <FiInfo size={13} />
         </button>
+        {/* Promo ribbon */}
+        {isOnPromo(product) && (
+          <div className="absolute top-2 left-2 flex items-center gap-1 bg-primary-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <FiTag size={10} /> -{discountPct(product)}%
+          </div>
+        )}
         {/* Cart badge */}
         {cartItem && (
-          <div className="absolute top-2 left-2 bg-primary-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+          <div
+            className={`absolute ${isOnPromo(product) ? "top-9" : "top-2"} left-2 bg-dark-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
             {cartItem.qty} in cart
           </div>
         )}
@@ -293,19 +423,38 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
           <h3 className="text-sm font-medium text-dark-800 dark:text-dark-200 leading-snug">
             {truncate(product.name, 45)}
           </h3>
-          <p className="text-base font-bold text-primary-600 mt-1">
-            {formatPrice(product.basePrice)}
-          </p>
+          {isOnPromo(product) ? (
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
+              <p className="text-base font-bold text-primary-600">
+                {formatPrice(product.salePrice)}
+              </p>
+              <p className="text-xs text-dark-400 line-through">
+                {formatPrice(product.basePrice)}
+              </p>
+              <span className="text-[10px] font-bold text-white bg-primary-600 px-1.5 py-0.5 rounded">
+                -{discountPct(product)}%
+              </span>
+            </div>
+          ) : (
+            <p className="text-base font-bold text-primary-600 mt-1">
+              {formatPrice(product.basePrice)}
+            </p>
+          )}
           {min > 1 && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
               Min: {min} units
+            </p>
+          )}
+          {product.focBuy > 0 && product.focFree > 0 && (
+            <p className="text-[11px] font-semibold text-primary-600 dark:text-primary-400">
+              🎁 Buy {product.focBuy} Free {product.focFree}
             </p>
           )}
         </div>
 
         {/* Qty + Add */}
         {inStock && (
-          <div className="flex items-center gap-2 mt-auto">
+          <div className="flex items-center gap-2 mt-auto flex-wrap">
             <div className="flex items-center border border-dark-200 dark:border-dark-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => setQty((q) => Math.max(min, q - 1))}
@@ -325,7 +474,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
             </div>
             <button
               onClick={() => onAdd(product, qty)}
-              className="flex-1 btn-primary py-1.5 text-xs">
+              className="flex-1 min-w-[96px] btn-primary py-1.5 text-xs">
               <FiShoppingCart size={12} />
               Add
             </button>
@@ -343,7 +492,7 @@ function ProductListRow({ product, cartItem, onAdd, onInfo }) {
   const [qty, setQty] = useState(min);
 
   return (
-    <div className="card dark:bg-dark-900 dark:border-dark-800 p-4 flex items-center gap-4 hover:border-primary-200 dark:hover:border-primary-800 transition-all">
+    <div className="card dark:bg-dark-900 dark:border-dark-800 p-4 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 hover:border-primary-200 dark:hover:border-primary-800 transition-all">
       {/* Image */}
       <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-dark-50 dark:bg-dark-800 flex-shrink-0">
         {product.images?.[0] ? (
@@ -392,10 +541,21 @@ function ProductListRow({ product, cartItem, onAdd, onInfo }) {
       </div>
 
       {/* Price + Qty + Add */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <span className="text-lg font-bold text-primary-600">
-          {formatPrice(product.basePrice)}
-        </span>
+      <div className="flex items-center gap-3 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
+        {isOnPromo(product) ? (
+          <div className="flex flex-col items-end">
+            <span className="text-lg font-bold text-primary-600">
+              {formatPrice(product.salePrice)}
+            </span>
+            <span className="text-xs text-dark-400 line-through">
+              {formatPrice(product.basePrice)}
+            </span>
+          </div>
+        ) : (
+          <span className="text-lg font-bold text-primary-600">
+            {formatPrice(product.basePrice)}
+          </span>
+        )}
         {inStock && (
           <>
             <div className="flex items-center border border-dark-200 dark:border-dark-700 rounded-xl overflow-hidden">
@@ -428,38 +588,52 @@ function ProductListRow({ product, cartItem, onAdd, onInfo }) {
   );
 }
 
-// ── Info Modal ────────────────────────────────────────
+// ── Info Modal (redesigned, responsive) ───────────────
 function ProductModal({ product, cartItem, onAdd, onClose }) {
   const min = product.minOrder || 1;
   const inStock = (product.stock || 0) > 0;
+  const promo = isOnPromo(product);
   const [qty, setQty] = useState(min);
   const [selImg, setSelImg] = useState(0);
 
-  // Close on backdrop click
+  // Lock body scroll while open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
   const handleBackdrop = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
 
-  return (
+  const price = effectivePrice(product);
+  const lowStock = inStock && product.stock <= min * 2;
+
+  // Portal to <body>: escapes the .page-enter transform that otherwise
+  // breaks position:fixed and makes the modal follow page scroll.
+  return createPortal(
     <div
       onClick={handleBackdrop}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-dark-900/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-dark-100 dark:border-dark-800">
-          <h2 className="font-display font-bold text-dark-900 dark:text-dark-100 text-lg">
-            Product Info
-          </h2>
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-dark-900/70 backdrop-blur-sm sm:p-4">
+      <div className="bg-white dark:bg-dark-900 w-full sm:max-w-3xl sm:rounded-3xl rounded-t-3xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col sm:flex-row animate-[slideUp_0.25s_ease-out]">
+        {/* ── Left: image gallery ── */}
+        <div className="sm:w-1/2 bg-dark-50 dark:bg-dark-800 relative shrink-0 flex items-start justify-center self-stretch">
+          {/* Close (mobile floats over image) */}
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-dark-400 hover:text-dark-700 hover:bg-dark-100 dark:hover:bg-dark-800 transition-colors">
+            className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/90 dark:bg-dark-900/90 flex items-center justify-center text-dark-500 hover:text-dark-800 shadow-md transition-colors sm:hidden">
             <FiX size={18} />
           </button>
-        </div>
 
-        <div className="p-5 space-y-5">
-          {/* Image */}
-          <div className="aspect-video rounded-xl overflow-hidden bg-dark-50 dark:bg-dark-800">
+          {promo && (
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-1 bg-primary-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">
+              <FiTag size={12} /> -{discountPct(product)}%
+            </div>
+          )}
+
+          <div className="w-full aspect-square sm:aspect-auto sm:h-full sm:max-h-[90vh] flex items-center justify-center overflow-hidden">
             {product.images?.[selImg] ? (
               <img
                 src={product.images[selImg]}
@@ -467,108 +641,172 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-dark-300">
-                <FiPackage size={48} />
+              <div className="w-full h-full min-h-[200px] flex items-center justify-center text-dark-300">
+                <FiPackage size={56} />
               </div>
             )}
           </div>
 
-          {/* Thumbnails */}
+          {/* Thumbnails overlay */}
           {product.images?.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/80 dark:bg-dark-900/80 backdrop-blur px-2 py-1.5 rounded-full">
               {product.images.map((img, i) => (
                 <button
                   key={i}
                   onClick={() => setSelImg(i)}
-                  className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-colors ${
+                  className={`w-2 h-2 rounded-full transition-all ${
                     selImg === i
-                      ? "border-primary-500"
-                      : "border-transparent hover:border-dark-300"
-                  }`}>
-                  <img
-                    src={img}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                </button>
+                      ? "bg-primary-600 w-5"
+                      : "bg-dark-300 dark:bg-dark-600"
+                  }`}
+                />
               ))}
             </div>
           )}
+        </div>
 
-          {/* Details */}
-          <div className="space-y-2">
-            <span className="text-xs font-medium text-primary-600 bg-primary-50 dark:bg-primary-900/20 px-2.5 py-1 rounded-full">
-              {product.category}
-            </span>
-            <h3 className="text-xl font-display font-bold text-dark-900 dark:text-dark-100">
+        {/* ── Right: details ── */}
+        <div className="sm:w-1/2 flex flex-col min-h-0 overflow-y-auto">
+          <div className="p-5 sm:p-6 flex flex-col gap-4 flex-1">
+            {/* Close (desktop) */}
+            <div className="hidden sm:flex justify-end -mt-2 -mr-2">
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-dark-400 hover:text-dark-700 hover:bg-dark-100 dark:hover:bg-dark-800 transition-colors">
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Category + code */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-primary-600 bg-primary-50 dark:bg-primary-900/20 px-2.5 py-1 rounded-full">
+                {product.category}
+              </span>
+              {product.itemCode && (
+                <span className="text-xs font-mono font-bold text-dark-500 dark:text-dark-400 bg-dark-100 dark:bg-dark-800 px-2 py-1 rounded-full">
+                  {product.itemCode}
+                </span>
+              )}
+            </div>
+
+            {/* Name */}
+            <h2 className="text-xl sm:text-2xl font-display font-bold text-dark-900 dark:text-dark-100 leading-tight">
               {product.name}
-            </h3>
-            <p className="text-2xl font-bold text-primary-600">
-              {formatPrice(product.basePrice)}
-            </p>
+            </h2>
+
+            {/* Price */}
+            <div className="flex items-end gap-2.5 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-bold text-primary-600">
+                {formatPrice(price)}
+              </span>
+              {promo && (
+                <>
+                  <span className="text-base text-dark-400 line-through mb-1">
+                    {formatPrice(product.basePrice)}
+                  </span>
+                  <span className="text-xs font-bold text-white bg-primary-600 px-2 py-0.5 rounded-lg mb-1.5">
+                    Save {discountPct(product)}%
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Stock + MOQ chips */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+                  inStock
+                    ? lowStock
+                      ? "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
+                      : "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
+                    : "bg-red-50 dark:bg-red-900/20 text-red-500"
+                }`}>
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    inStock
+                      ? lowStock
+                        ? "bg-amber-500"
+                        : "bg-green-500"
+                      : "bg-red-400"
+                  }`}
+                />
+                {inStock ? `${product.stock} in stock` : "Out of stock"}
+              </span>
+              {min > 1 && (
+                <span className="text-xs font-medium text-dark-500 dark:text-dark-400 bg-dark-100 dark:bg-dark-800 px-2.5 py-1 rounded-full">
+                  Min order: {min}
+                </span>
+              )}
+              {product.focBuy > 0 && product.focFree > 0 && (
+                <span className="text-xs font-semibold text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-2.5 py-1 rounded-full">
+                  🎁 Buy {product.focBuy} Free {product.focFree}
+                </span>
+              )}
+            </div>
+
+            {/* Description */}
             {product.description && (
-              <p className="text-sm text-dark-600 dark:text-dark-400 leading-relaxed pt-1">
+              <p className="text-sm text-dark-600 dark:text-dark-400 leading-relaxed">
                 {product.description}
+              </p>
+            )}
+
+            {cartItem && (
+              <p className="text-xs text-primary-600 dark:text-primary-400 font-medium">
+                {cartItem.qty} unit{cartItem.qty !== 1 ? "s" : ""} already in
+                cart
               </p>
             )}
           </div>
 
-          {/* Stock + min order */}
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`w-2 h-2 rounded-full ${inStock ? "bg-green-500" : "bg-red-400"}`}
-              />
-              <span className="text-dark-500 dark:text-dark-400">
-                {inStock ? `${product.stock} in stock` : "Out of stock"}
-              </span>
-            </div>
-            {min > 1 && (
-              <span className="text-amber-600 dark:text-amber-400 font-medium">
-                Min order: {min}
-              </span>
-            )}
-          </div>
-
-          {/* Qty + Add */}
+          {/* Sticky footer: qty + add */}
           {inStock && (
-            <div className="flex items-center gap-3 pt-1">
-              <div className="flex items-center border border-dark-200 dark:border-dark-700 rounded-xl overflow-hidden">
+            <div className="p-5 sm:p-6 pt-4 border-t border-dark-100 dark:border-dark-800 bg-white dark:bg-dark-900">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center border border-dark-200 dark:border-dark-700 rounded-xl overflow-hidden shrink-0">
+                  <button
+                    onClick={() => setQty((q) => Math.max(min, q - 1))}
+                    disabled={qty <= min}
+                    className="px-3 py-3 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
+                    <FiMinus size={14} />
+                  </button>
+                  <span className="px-4 py-3 text-sm font-semibold text-dark-900 dark:text-dark-100 min-w-[3rem] text-center border-x border-dark-200 dark:border-dark-700">
+                    {qty}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setQty((q) => Math.min(product.stock, q + 1))
+                    }
+                    disabled={qty >= product.stock}
+                    className="px-3 py-3 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
+                    <FiPlus size={14} />
+                  </button>
+                </div>
                 <button
-                  onClick={() => setQty((q) => Math.max(min, q - 1))}
-                  disabled={qty <= min}
-                  className="px-3 py-2.5 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
-                  <FiMinus size={14} />
-                </button>
-                <span className="px-5 py-2.5 text-sm font-semibold text-dark-900 dark:text-dark-100 min-w-[3.5rem] text-center border-x border-dark-200 dark:border-dark-700">
-                  {qty}
-                </span>
-                <button
-                  onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
-                  disabled={qty >= product.stock}
-                  className="px-3 py-2.5 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
-                  <FiPlus size={14} />
+                  onClick={() => {
+                    onAdd(product, qty);
+                    onClose();
+                  }}
+                  className="btn-primary flex-1 py-3 justify-center">
+                  <FiShoppingCart size={16} />
+                  Add to Cart
                 </button>
               </div>
-              <button
-                onClick={() => {
-                  onAdd(product, qty);
-                  onClose();
-                }}
-                className="btn-primary flex-1 py-2.5">
-                <FiShoppingCart size={16} />
-                Add to Cart
-              </button>
+              <p className="text-center text-xs text-dark-400 mt-2">
+                Subtotal: {formatPrice(price * qty)}
+              </p>
             </div>
-          )}
-
-          {cartItem && (
-            <p className="text-center text-xs text-primary-600 font-medium">
-              {cartItem.qty} unit{cartItem.qty !== 1 ? "s" : ""} already in cart
-            </p>
           )}
         </div>
       </div>
-    </div>
+
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(24px); opacity: 0.5; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
+    </div>,
+    document.body,
   );
 }

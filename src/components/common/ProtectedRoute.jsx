@@ -3,14 +3,14 @@ import { useAuth } from "@/context/AuthContext";
 import { Navigate, useLocation } from "react-router-dom";
 import LoadingSpinner from "./LoadingSpinner";
 
-// Requires outlet login
+// Outlet pages — outlets use them fully; admin may browse (View Shop)
 export const OutletRoute = ({ children }) => {
-  const { user, isOutlet, loading } = useAuth();
+  const { user, isOutlet, isAdmin, loading } = useAuth();
   const location = useLocation();
 
   if (loading) return <LoadingSpinner fullPage />;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
-  if (!isOutlet) return <Navigate to="/login" replace />;
+  if (!isOutlet && !isAdmin) return <Navigate to="/login" replace />;
 
   return children;
 };

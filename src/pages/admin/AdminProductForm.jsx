@@ -1,435 +1,236 @@
+// src/pages/admin/AdminProductForm.jsx
 import LoadingSpinner from "@/components/common/LoadingSpinner";
-import { db, storage } from "@/firebase/config";
-import { addProduct, getProduct, updateProduct } from "@/firebase/products";
-import useFormKeyboard from "@/hooks/useFormKeyboard";
-import { formatPrice, genId } from "@/utils/helpers";
-import { collection, getDocs } from "firebase/firestore";
 import {
-  deleteObject,
-  getDownloadURL,
-  ref,
-  uploadBytesResumable,
-} from "firebase/storage";
+  addProduct,
+  addUom,
+  deleteUom,
+  getBrands,
+  getCategories,
+  getProduct,
+  getUoms,
+  updateProduct,
+} from "@/firebase/products";
+import { uploadImages } from "@/firebase/storage";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
   FiArrowLeft,
+  FiImage,
+  FiLoader,
   FiPlus,
-  FiSave,
-  FiStar,
+  FiSettings,
   FiTag,
-  FiToggleLeft,
-  FiToggleRight,
   FiTrash2,
-  FiUpload,
+  FiUploadCloud,
   FiX,
-  FiZoomIn,
 } from "react-icons/fi";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
-const blankVariant = () => ({
-  id: genId(),
-  label: "",
-  price: "",
+const MAX_IMAGES = 6;
+
+const QUICK_UOMS = ["PCS", "CTN", "BOX", "PKT", "DOZ", "SET", "PACK"];
+
+const BLANK = {
+  itemCode: "",
+  name: "",
+  description: "",
+  brand: "",
+  uom: "PCS",
+  focBuy: "",
+  focFree: "",
+  category: "",
+  basePrice: "",
+  salePrice: "",
+  isPromo: false,
+  minOrder: 1,
   stock: 0,
-  thumbnail: "",
-});
-
-function ImageLightbox({ url, onClose }) {
-  useEffect(() => {
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handler = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener("keydown", handler);
-    };
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex justify-center p-5"
-      onClick={onClose}>
-      <button
-        onClick={onClose}
-        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors"
-        aria-label="Close">
-        <FiX size={24} />
-      </button>
-      <img
-        src={url}
-        alt=""
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: "85vw", maxHeight: "85vh" }}
-        className="object-contain rounded-2xl shadow-2xl"
-      />
-    </div>
-  );
-}
-
-function BulkImageUpload({ currentCount, maxCount, onUpload }) {
-  const inputRef = useRef(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0, pct: 0 });
-
-  const handleFiles = async (files) => {
-    const remaining = maxCount - currentCount;
-    const toUpload = Array.from(files).slice(0, remaining);
-    if (toUpload.length === 0) {
-      toast.error("Maximum 6 images reached");
-      return;
-    }
-
-    // Validate all files first
-    for (const file of toUpload) {
-      if (!file.type.startsWith("image/")) {
-        toast.error(`${file.name} is not an image`);
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} exceeds 5MB`);
-        return;
-      }
-    }
-
-    setUploading(true);
-    setProgress({ current: 0, total: toUpload.length, pct: 0 });
-
-    try {
-      for (let i = 0; i < toUpload.length; i++) {
-        const file = toUpload[i];
-        const path = `products/${Date.now()}_${file.name}`;
-        const r = ref(storage, path);
-        const task = uploadBytesResumable(r, file);
-
-        await new Promise((resolve, reject) => {
-          task.on(
-            "state_changed",
-            (s) => {
-              const pct = Math.round((s.bytesTransferred / s.totalBytes) * 100);
-              setProgress({ current: i + 1, total: toUpload.length, pct });
-            },
-            reject,
-            resolve,
-          );
-        });
-
-        const url = await getDownloadURL(task.snapshot.ref);
-        onUpload(url);
-        setProgress({ current: i + 1, total: toUpload.length, pct: 100 });
-      }
-      toast.success(
-        `${toUpload.length} image${toUpload.length > 1 ? "s" : ""} uploaded!`,
-      );
-    } catch (e) {
-      toast.error("Upload failed: " + e.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  return (
-    <div
-      onClick={() => !uploading && inputRef.current?.click()}
-      onDrop={(e) => {
-        e.preventDefault();
-        handleFiles(e.dataTransfer.files);
-      }}
-      onDragOver={(e) => e.preventDefault()}
-      className="border-2 border-dashed border-dark-200 dark:border-dark-700 rounded-xl flex flex-col items-center justify-center gap-2 p-6 cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-all">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          handleFiles(e.target.files);
-          e.target.value = "";
-        }}
-      />
-      {uploading ? (
-        <>
-          <div className="h-8 w-8 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
-          <p className="text-sm font-medium text-dark-600 dark:text-dark-400">
-            Uploading {progress.current}/{progress.total}…
-          </p>
-          <div className="w-48 h-1.5 bg-dark-100 dark:bg-dark-700 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary-500 rounded-full transition-all"
-              style={{ width: `${progress.pct}%` }}
-            />
-          </div>
-        </>
-      ) : (
-        <>
-          <FiUpload size={22} className="text-dark-400" />
-          <p className="text-sm font-medium text-dark-600 dark:text-dark-400">
-            Click or drag images here
-          </p>
-          <p className="text-xs text-dark-400">
-            Select up to {maxCount - currentCount} image
-            {maxCount - currentCount > 1 ? "s" : ""} at once · Max 5MB each
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ── Reusable image upload box ─────────────────────────
-function ImageBox({ url, onUpload, onRemove, small = false }) {
-  const inputRef = useRef(null);
-  const [prog, setProg] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const [zoom, setZoom] = useState(false); // ← add this
-
-  const handleFile = async (file) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please select an image");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Max 5MB per image");
-      return;
-    }
-    setBusy(true);
-    setProg(0);
-    try {
-      const path = `products/${Date.now()}_${file.name}`;
-      const r = ref(storage, path);
-      const task = uploadBytesResumable(r, file);
-      await new Promise((resolve, reject) => {
-        task.on(
-          "state_changed",
-          (s) => setProg(Math.round((s.bytesTransferred / s.totalBytes) * 100)),
-          reject,
-          resolve,
-        );
-      });
-      const downloadUrl = await getDownloadURL(task.snapshot.ref);
-      onUpload(downloadUrl);
-    } catch (e) {
-      toast.error("Upload failed: " + e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (url)
-    return (
-      <>
-        {zoom && <ImageLightbox url={url} onClose={() => setZoom(false)} />}
-        <div
-          className={`relative rounded-xl overflow-hidden border border-dark-200 dark:border-dark-700 group ${small ? "h-20 w-20 shrink-0" : "aspect-square"}`}>
-          <img
-            src={url}
-            alt=""
-            className="w-full h-full object-cover cursor-zoom-in"
-            onClick={() => setZoom(true)}
-          />
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => setZoom(true)}
-              className="h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-dark-700 hover:bg-white transition-colors">
-              <FiZoomIn size={13} />
-            </button>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="h-7 w-7 rounded-full bg-white/90 flex items-center justify-center text-red-500 hover:bg-white transition-colors">
-              <FiTrash2 size={13} />
-            </button>
-          </div>
-        </div>
-      </>
-    );
-
-  return (
-    <div
-      onClick={() => !busy && inputRef.current?.click()}
-      onDrop={(e) => {
-        e.preventDefault();
-        handleFile(e.dataTransfer.files?.[0]);
-      }}
-      onDragOver={(e) => e.preventDefault()}
-      className={`relative border-2 border-dashed border-dark-200 dark:border-dark-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-all ${small ? "h-20 w-20 shrink-0" : "aspect-square"}`}>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          handleFile(e.target.files?.[0]);
-          e.target.value = "";
-        }}
-      />
-      {busy ? (
-        <div className="flex flex-col items-center gap-1">
-          <div className="h-6 w-6 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
-          {!small && <p className="text-xs text-dark-400">{prog}%</p>}
-        </div>
-      ) : (
-        <>
-          <FiUpload size={small ? 14 : 20} className="text-dark-400" />
-          {!small && (
-            <p className="text-xs text-dark-500 mt-1 text-center px-2">
-              Click or drag
-            </p>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ── Delete image from Storage ─────────────────────────
-const tryDeleteStorageImage = async (url) => {
-  if (!url?.startsWith("https://firebasestorage")) return;
-  try {
-    await deleteObject(ref(storage, url));
-  } catch {}
+  status: "draft",
+  images: [],
 };
 
 export default function AdminProductForm() {
   const { id } = useParams();
+  const isEdit = Boolean(id);
   const navigate = useNavigate();
-  const isEdit = !!id && id !== "new";
+  const fileRef = useRef(null);
 
+  const [form, setForm] = useState(BLANK);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
-  const [cats, setCats] = useState([]);
-
-  const [form, setForm] = useState({
-    name: "",
-    category: "",
-    basePrice: "",
-    comparePrice: "",
-    description: "",
-    badge: "",
-    images: [],
-    variants: [blankVariant()],
-  });
-
-  const { handleKeyDown } = useFormKeyboard();
+  const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
+  const [uoms, setUoms] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [uomModal, setUomModal] = useState(false);
+  const [newUom, setNewUom] = useState("");
+  const [savingUom, setSavingUom] = useState(false);
 
   useEffect(() => {
-    getDocs(collection(db, "categories"))
-      .then((snap) =>
-        setCats(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
-      )
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!isEdit) return;
-    getProduct(id).then((p) => {
-      if (p) {
-        const variants = p.variants || [];
-        if (variants.length > 0)
-          variants[0] = { ...variants[0], price: p.basePrice };
-        setForm({
-          ...p,
-          basePrice: p.basePrice || "",
-          comparePrice: p.comparePrice || "",
-          variants,
-          images: p.images || [],
-        });
+    (async () => {
+      try {
+        const [cats, uomList, brandList] = await Promise.all([
+          getCategories(),
+          getUoms(),
+          getBrands(),
+        ]);
+        setCategories(cats);
+        setUoms(uomList);
+        setBrands(brandList);
+        if (isEdit) {
+          const p = await getProduct(id);
+          if (!p) {
+            toast.error("Product not found");
+            navigate("/admin/products");
+            return;
+          }
+          setForm({ ...BLANK, ...p });
+        }
+      } catch (e) {
+        console.error("Load failed:", e);
+        toast.error("Failed to load");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    });
-  }, [id, isEdit]);
+    })();
+  }, [id]);
 
-  const setField = (k, v) => setForm((p) => ({ ...p, [k]: v }));
-  const setVariant = (idx, key, val) =>
-    setForm((p) => ({
-      ...p,
-      variants: p.variants.map((v, i) =>
-        i === idx ? { ...v, [key]: val } : v,
-      ),
-    }));
-  const addVariant = () =>
-    setForm((p) => ({ ...p, variants: [...p.variants, blankVariant()] }));
-  const removeVariant = (idx) => {
-    if (form.variants.length <= 1) {
-      toast.error("At least one variant required");
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const handleUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const room = MAX_IMAGES - form.images.length;
+    if (room <= 0) {
+      toast.error(`Maximum ${MAX_IMAGES} images`);
       return;
     }
-    setForm((p) => ({
-      ...p,
-      variants: p.variants.filter((_, i) => i !== idx),
-    }));
+    const toUpload = files.slice(0, room);
+
+    setUploading(true);
+    setUploadPct(0);
+    try {
+      const urls = await uploadImages(
+        toUpload,
+        `products/${id || Date.now()}`,
+        (i, total, pct) =>
+          setUploadPct(Math.round(((i + pct / 100) / total) * 100)),
+      );
+      setForm((f) => ({ ...f, images: [...f.images, ...urls] }));
+      toast.success(
+        `${urls.length} image${urls.length > 1 ? "s" : ""} uploaded`,
+      );
+    } catch (err) {
+      console.error("Upload failed:", err);
+      toast.error("Image upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
-  // ── Product image handlers ────────────────────────────
-  const handleProductImageUpload = (url) => {
-    setForm((p) => ({ ...p, images: [...(p.images || []), url] }));
-  };
+  const removeImage = (idx) =>
+    setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
 
-  const handleRemoveProductImage = async (index) => {
-    await tryDeleteStorageImage(form.images[index]);
-    setForm((p) => ({ ...p, images: p.images.filter((_, i) => i !== index) }));
-  };
-
-  // ── Variant image handlers ────────────────────────────
-  const handleVariantImageUpload = (idx, url) => {
-    setVariant(idx, "thumbnail", url);
-  };
-
-  const handleRemoveVariantImage = async (idx) => {
-    await tryDeleteStorageImage(form.variants[idx].thumbnail);
-    setVariant(idx, "thumbnail", "");
-  };
-
-  // ── Save ──────────────────────────────────────────────
-  const handleSave = async () => {
-    if (!form.name.trim() || !form.basePrice) {
-      toast.error("Name and price are required");
+  const handleAddUom = async (rawName) => {
+    const name = (rawName ?? newUom).trim().toUpperCase();
+    if (!name) return;
+    if (uoms.some((u) => u.name === name)) {
+      toast.error(`${name} already exists`);
       return;
     }
-    if (!form.category) {
-      toast.error("Category is required");
-      return;
+    setSavingUom(true);
+    try {
+      await addUom(name);
+      const list = await getUoms();
+      setUoms(list);
+      setForm((f) => ({ ...f, uom: name }));
+      setNewUom("");
+      toast.success(`${name} added`);
+    } catch (e) {
+      console.error("Add UOM failed:", e);
+      toast.error("Failed to add UOM");
+    } finally {
+      setSavingUom(false);
     }
+  };
+
+  const handleDeleteUom = async (u) => {
+    if (!window.confirm(`Delete UOM "${u.name}"? Existing products keep it.`))
+      return;
+    try {
+      await deleteUom(u.id);
+      setUoms((prev) => prev.filter((x) => x.id !== u.id));
+      toast.success(`${u.name} removed`);
+    } catch {
+      toast.error("Failed to delete UOM");
+    }
+  };
+
+  const handleSave = async (statusOverride) => {
+    if (saving) return;
+    const name = form.name.trim();
+    const price = parseFloat(form.basePrice);
+    const minOrder = parseInt(form.minOrder, 10) || 1;
+    const stock = parseInt(form.stock, 10) || 0;
+    const isPromo = Boolean(form.isPromo);
+    const salePrice = isPromo ? parseFloat(form.salePrice) : null;
+    const uom = form.uom.trim().toUpperCase();
+    const focBuy = parseInt(form.focBuy, 10) || 0;
+    const focFree = parseInt(form.focFree, 10) || 0;
+
+    const itemCode = form.itemCode.trim();
+    if (!itemCode) return toast.error("Item code is required");
+    if (!name) return toast.error("Product name is required");
+    if (!form.category) return toast.error("Please select a category");
+    if (isNaN(price) || price <= 0) return toast.error("Enter a valid price");
+    if (minOrder < 1) return toast.error("MOQ must be at least 1");
+    if (stock < 0) return toast.error("Stock cannot be negative");
+    if (isPromo) {
+      if (isNaN(salePrice) || salePrice <= 0)
+        return toast.error("Enter a valid promotion price");
+      if (salePrice >= price)
+        return toast.error("Promotion price must be lower than the base price");
+    }
+    if (!uom) return toast.error("UOM is required");
+    if (focBuy > 0 !== focFree > 0)
+      return toast.error(
+        "FOC: fill in both Buy and Free quantities (or leave both empty)",
+      );
+
+    const status = statusOverride || form.status || "draft";
+    const data = {
+      itemCode,
+      name,
+      description: form.description.trim(),
+      brand: form.brand || "",
+      uom,
+      focBuy,
+      focFree,
+      category: form.category,
+      basePrice: price,
+      salePrice: isPromo ? salePrice : null,
+      isPromo,
+      minOrder,
+      stock,
+      status,
+      inStock: stock > 0,
+      images: form.images,
+    };
+
     setSaving(true);
     try {
-      const data = {
-        name: form.name.trim(),
-        description: form.description.trim(),
-        category: form.category,
-        badge: form.badge.trim(),
-        basePrice: parseFloat(form.basePrice),
-        comparePrice: form.comparePrice ? parseFloat(form.comparePrice) : null,
-        images: (form.images || []).filter(Boolean),
-        variants: form.variants.map((v, i) => ({
-          ...v,
-          price:
-            i === 0
-              ? parseFloat(form.basePrice)
-              : parseFloat(v.price) || parseFloat(form.basePrice),
-          stock: parseInt(v.stock) || 0,
-        })),
-        inStock: form.variants.some((v) => parseInt(v.stock) > 0),
-        // ✅ New products default to draft, edit keeps existing status
-        status: isEdit ? form.status || "draft" : "draft",
-      };
       if (isEdit) {
         await updateProduct(id, data);
-        toast.success("Product updated!");
+        toast.success("Product updated");
       } else {
         await addProduct(data);
-        toast.success("Product added!");
+        toast.success("Product created");
       }
       navigate("/admin/products");
-    } catch (err) {
-      toast.error("Save failed: " + err.message);
+    } catch (e) {
+      console.error("Save failed:", e);
+      toast.error("Failed to save product");
     } finally {
       setSaving(false);
     }
@@ -437,451 +238,429 @@ export default function AdminProductForm() {
 
   if (loading) return <LoadingSpinner fullPage />;
 
+  const inputCls =
+    "w-full px-3 py-2.5 text-sm rounded-xl bg-dark-50 dark:bg-dark-800 border border-transparent focus:border-primary-500 text-dark-900 dark:text-dark-100 outline-none transition-colors";
+  const labelCls =
+    "block text-xs font-medium text-dark-500 dark:text-dark-400 mb-1";
+
   return (
-    <form className="max-w-3xl space-y-5" onKeyDown={handleKeyDown}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            to="/admin/products"
-            className="p-2 hover:bg-dark-100 dark:hover:bg-dark-800 rounded-lg transition-colors text-dark-600 dark:text-dark-400">
-            <FiArrowLeft size={18} />
-          </Link>
-          <h1 className="text-2xl font-bold text-dark-900 dark:text-dark-100">
-            {isEdit ? "Edit Product" : "New Product"}
-          </h1>
-        </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="btn-primary gap-2 text-sm py-2.5">
-          <FiSave size={15} /> {saving ? "Saving…" : "Save Product"}
-        </button>
+    <div className="max-w-3xl mx-auto space-y-4">
+      {/* ── Header ── */}
+      <div className="flex items-center gap-3">
+        <Link
+          to="/admin/products"
+          className="p-2 rounded-lg text-dark-500 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+          <FiArrowLeft size={18} />
+        </Link>
+        <h1 className="text-2xl font-bold text-dark-900 dark:text-dark-100">
+          {isEdit ? "Edit Product" : "New Product"}
+        </h1>
       </div>
 
-      {/* Basic Info */}
-      <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 p-5 space-y-4">
-        <h2 className="font-semibold text-dark-900 dark:text-dark-100">
-          Basic Information
-        </h2>
-        <div>
-          <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">
-            Product Name *
-          </label>
-          <input
-            value={form.name}
-            onChange={(e) => setField("name", e.target.value)}
-            className="input dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-            placeholder="Premium Leather Wallet"
-          />
+      {/* ── Basic info ── */}
+      <div className="bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 rounded-2xl p-5 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-4">
+          <div>
+            <label className={labelCls}>Item code *</label>
+            <input
+              value={form.itemCode}
+              onChange={set("itemCode")}
+              placeholder="e.g. BW-080"
+              className={`${inputCls} font-mono`}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Product name *</label>
+            <input
+              value={form.name}
+              onChange={set("name")}
+              className={inputCls}
+            />
+          </div>
         </div>
+
         <div>
-          <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">
-            Description
-          </label>
+          <label className={labelCls}>Description</label>
           <textarea
             value={form.description}
-            onChange={(e) => setField("description", e.target.value)}
-            rows={4}
-            className="input resize-none dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-            placeholder="Product description…"
+            onChange={set("description")}
+            rows={3}
+            className={`${inputCls} resize-none`}
           />
         </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">
-              Category
-            </label>
+            <label className={labelCls}>Category *</label>
             <select
               value={form.category}
-              onChange={(e) => setField("category", e.target.value)}
-              className="input dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100">
-              <option value="">Select category</option>
-              {cats.map((c) => (
+              onChange={set("category")}
+              className={inputCls}>
+              <option value="">Select category…</option>
+              {categories.map((c) => (
                 <option key={c.id} value={c.name}>
                   {c.name}
                 </option>
               ))}
             </select>
+            {categories.length === 0 && (
+              <p className="text-[11px] text-amber-600 mt-1">
+                No categories yet —{" "}
+                <Link to="/admin/categories" className="underline">
+                  create one first
+                </Link>
+              </p>
+            )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">
-              Badge (optional)
-            </label>
-            <input
-              value={form.badge}
-              onChange={(e) => setField("badge", e.target.value)}
-              className="input dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-              placeholder="e.g. Best Seller, New"
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">
-              Base Price (RM) *
-            </label>
+            <label className={labelCls}>Price (RM) *</label>
             <input
               type="number"
               step="0.01"
               min="0"
               value={form.basePrice}
-              onChange={(e) => {
-                setForm((p) => ({
-                  ...p,
-                  basePrice: e.target.value,
-                  variants: p.variants.map((v, i) =>
-                    i === 0 ? { ...v, price: e.target.value } : v,
-                  ),
-                }));
-              }}
-              className="input dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-              placeholder="89.90"
+              onChange={set("basePrice")}
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>
+              Brand{" "}
+              <span className="normal-case font-normal">
+                (controls outlet visibility)
+              </span>
+            </label>
+            <select
+              value={form.brand}
+              onChange={set("brand")}
+              className={inputCls}>
+              <option value="">— No brand (visible to all outlets) —</option>
+              {form.brand && !brands.some((b) => b.name === form.brand) && (
+                <option value={form.brand}>{form.brand}</option>
+              )}
+              {brands.map((b) => (
+                <option key={b.id} value={b.name}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className={`${labelCls} mb-0`}>
+                UOM (unit of measure) *
+              </label>
+              <button
+                type="button"
+                onClick={() => setUomModal(true)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-600 dark:text-primary-400 hover:underline">
+                <FiSettings size={11} /> Manage
+              </button>
+            </div>
+            <select value={form.uom} onChange={set("uom")} className={inputCls}>
+              {form.uom && !uoms.some((u) => u.name === form.uom) && (
+                <option value={form.uom}>{form.uom}</option>
+              )}
+              {uoms.length === 0 && !form.uom && (
+                <option value="">— add a UOM first —</option>
+              )}
+              {uoms.map((u) => (
+                <option key={u.id} value={u.name}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>
+              FOC — Buy X Free Y{" "}
+              <span className="normal-case font-normal">(optional)</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                value={form.focBuy}
+                onChange={set("focBuy")}
+                placeholder="Buy (e.g. 12)"
+                className={inputCls}
+              />
+              <span className="text-dark-400 text-xs shrink-0">free</span>
+              <input
+                type="number"
+                min="0"
+                value={form.focFree}
+                onChange={set("focFree")}
+                placeholder="1"
+                className={inputCls}
+              />
+            </div>
+            {parseInt(form.focBuy, 10) > 0 &&
+              parseInt(form.focFree, 10) > 0 && (
+                <p className="text-[11px] text-primary-600 dark:text-primary-400 mt-1 font-semibold">
+                  🎁 Buy {form.focBuy} Free {form.focFree} — auto-calculated on
+                  orders
+                </p>
+              )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Minimum order quantity (MOQ)</label>
+            <input
+              type="number"
+              min="1"
+              value={form.minOrder}
+              onChange={set("minOrder")}
+              className={inputCls}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1.5">
-              Compare Price (RM)
-            </label>
+            <label className={labelCls}>Stock</label>
+            <input
+              type="number"
+              min="0"
+              value={form.stock}
+              onChange={set("stock")}
+              className={inputCls}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Promotion ── */}
+      <div className="bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 rounded-2xl p-5">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.isPromo}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, isPromo: e.target.checked }))
+            }
+            className="accent-primary-600 w-4 h-4"
+          />
+          <span className="flex items-center gap-1.5 text-sm font-semibold text-dark-900 dark:text-dark-100">
+            <FiTag
+              size={15}
+              className="text-primary-600 dark:text-primary-400"
+            />
+            On Promotion
+          </span>
+        </label>
+        <p className="text-[11px] text-dark-400 mt-1 ml-7">
+          Promoted products appear in a special row at the top of the shop.
+        </p>
+
+        {form.isPromo && (
+          <div className="mt-4 ml-7">
+            <label className={labelCls}>Promotion price (RM) *</label>
             <input
               type="number"
               step="0.01"
               min="0"
-              value={form.comparePrice}
-              onChange={(e) => setField("comparePrice", e.target.value)}
-              className="input dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-              placeholder="129.00"
+              value={form.salePrice}
+              onChange={set("salePrice")}
+              placeholder="Must be lower than base price"
+              className={`${inputCls} max-w-[200px]`}
             />
+            {form.salePrice &&
+              form.basePrice &&
+              parseFloat(form.salePrice) < parseFloat(form.basePrice) && (
+                <p className="text-[11px] text-primary-600 dark:text-primary-400 mt-1.5 font-semibold">
+                  {Math.round(
+                    (1 -
+                      parseFloat(form.salePrice) / parseFloat(form.basePrice)) *
+                      100,
+                  )}
+                  % off · was {form.basePrice}, now {form.salePrice}
+                </p>
+              )}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Product Images */}
-      <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-dark-900 dark:text-dark-100">
-            Product Images
-          </h2>
+      {/* ── Images ── */}
+      <div className="bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-xs font-medium text-dark-500 dark:text-dark-400 flex items-center gap-1.5">
+            <FiImage size={14} /> Images
+          </label>
           <span className="text-xs text-dark-400">
-            {(form.images || []).filter(Boolean).length} / 10
+            {form.images.length} / {MAX_IMAGES}
           </span>
         </div>
-        <p className="text-xs text-dark-400">
-          First image is the main display. Max 5MB per image.
-        </p>
 
-        {/* Bulk upload button */}
-        {(form.images || []).length < 10 && (
-          <BulkImageUpload
-            currentCount={(form.images || []).length}
-            maxCount={10}
-            onUpload={(url) =>
-              setForm((p) => ({ ...p, images: [...(p.images || []), url] }))
-            }
-          />
-        )}
-
-        {/* Image grid */}
-        {(form.images || []).length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-3">
-            {(form.images || []).map((url, i) => (
-              <div key={i} className="relative">
-                <ImageBox
-                  url={url}
-                  onRemove={() => handleRemoveProductImage(i)}
-                  onUpload={() => {}}
-                />
-                {i === 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 z-10 flex items-center gap-0.5 text-[9px] bg-primary-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                    <FiStar size={8} /> Main
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Variants */}
-      <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold text-dark-900 dark:text-dark-100">
-              Variants
-            </h2>
-            <p className="text-xs text-dark-400 mt-0.5">
-              Each variant can have its own label, price, stock, and image.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={addVariant}
-            className="btn-outline text-xs py-1.5 px-3 gap-1.5 dark:border-dark-700 dark:text-dark-300 dark:hover:bg-dark-800">
-            <FiPlus size={13} /> Add Variant
-          </button>
-        </div>
-
-        {form.variants.map((v, idx) => (
-          <div
-            key={v.id}
-            className="border border-dark-200 dark:border-dark-700 rounded-xl p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-dark-500 dark:text-dark-400 uppercase tracking-wide">
-                Variant {idx + 1}{" "}
-                {idx === 0 && (
-                  <span className="text-primary-500">(Default)</span>
-                )}
-              </span>
-              {form.variants.length > 1 && (
-                <button
-                  onClick={() => removeVariant(idx)}
-                  className="text-dark-400 hover:text-red-500 transition-colors">
-                  <FiTrash2 size={14} />
-                </button>
-              )}
-            </div>
-
-            {/* Image + fields row */}
-            <div className="flex gap-3 items-start">
-              {/* Variant image upload */}
-              <div className="shrink-0">
-                <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                  Image
-                </label>
-                <ImageBox
-                  small
-                  url={v.thumbnail}
-                  onUpload={(url) => handleVariantImageUpload(idx, url)}
-                  onRemove={() => handleRemoveVariantImage(idx)}
-                />
-              </div>
-
-              {/* Fields */}
-              <div className="flex-1 space-y-2">
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-3 sm:col-span-1">
-                    <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                      Label
-                    </label>
-                    <input
-                      value={v.label}
-                      onChange={(e) => setVariant(idx, "label", e.target.value)}
-                      className="input text-sm py-2 dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-                      placeholder="e.g. Black, Size M"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                      Price (RM){" "}
-                      {idx === 0 && (
-                        <span className="text-primary-500 text-[10px]">
-                          = Base
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={idx === 0 ? form.basePrice : v.price}
-                      onChange={(e) =>
-                        idx !== 0 && setVariant(idx, "price", e.target.value)
-                      }
-                      readOnly={idx === 0}
-                      className={`input text-sm py-2 dark:border-dark-700 ${idx === 0 ? "bg-dark-50 dark:bg-dark-800 text-dark-400 cursor-not-allowed" : "dark:bg-dark-800 dark:text-dark-100"}`}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                      Stock
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={v.stock}
-                      onChange={(e) => setVariant(idx, "stock", e.target.value)}
-                      className="input text-sm py-2 dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-                      placeholder="0"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Promotion */}
-            <div className="border-t border-dark-100 dark:border-dark-700 pt-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-dark-500 dark:text-dark-400 flex items-center gap-1.5">
-                  <FiTag size={12} /> Variant Promotion
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+          {form.images.map((url, idx) => (
+            <div key={idx} className="relative group aspect-square">
+              <img
+                src={url}
+                alt=""
+                className="w-full h-full rounded-xl object-cover bg-dark-100 dark:bg-dark-800"
+              />
+              {idx === 0 && (
+                <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-primary-600 text-white text-[9px] font-bold">
+                  MAIN
                 </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setVariant(idx, "promotion", {
-                      ...v.promotion,
-                      active: !v.promotion?.active,
-                    })
-                  }
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${v.promotion?.active ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400" : "bg-dark-100 dark:bg-dark-800 text-dark-500 dark:text-dark-400"}`}>
-                  {v.promotion?.active ? (
-                    <FiToggleRight size={14} />
-                  ) : (
-                    <FiToggleLeft size={14} />
-                  )}
-                  {v.promotion?.active ? "On" : "Off"}
-                </button>
-              </div>
-
-              {v.promotion?.active && (
-                <div className="space-y-2.5 bg-red-50/50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-xl p-3">
-                  <div>
-                    <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                      Promotion Label
-                    </label>
-                    <input
-                      value={v.promotion?.label || ""}
-                      onChange={(e) =>
-                        setVariant(idx, "promotion", {
-                          ...v.promotion,
-                          label: e.target.value,
-                        })
-                      }
-                      className="input text-sm py-2 dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-                      placeholder="e.g. Flash Sale, Raya Special"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                        Discount Type
-                      </label>
-                      <select
-                        value={v.promotion?.discountType || "percentage"}
-                        onChange={(e) =>
-                          setVariant(idx, "promotion", {
-                            ...v.promotion,
-                            discountType: e.target.value,
-                          })
-                        }
-                        className="input text-sm py-2 dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100">
-                        <option value="percentage">% Off</option>
-                        <option value="fixed">RM Off</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                        Value{" "}
-                        {v.promotion?.discountType === "percentage"
-                          ? "(%)"
-                          : "(RM)"}
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={v.promotion?.discountValue || ""}
-                        onChange={(e) =>
-                          setVariant(idx, "promotion", {
-                            ...v.promotion,
-                            discountValue: parseFloat(e.target.value),
-                          })
-                        }
-                        className="input text-sm py-2 dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-                        placeholder={
-                          v.promotion?.discountType === "percentage"
-                            ? "20"
-                            : "10.00"
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  {/* Price preview */}
-                  {(v.price || form.basePrice) &&
-                    v.promotion?.discountValue && (
-                      <div className="flex items-center justify-between bg-white dark:bg-dark-800 rounded-lg px-3 py-2 border border-red-100 dark:border-red-900/30">
-                        <span className="text-xs text-dark-500 dark:text-dark-400">
-                          Preview:
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-dark-400 line-through">
-                            {formatPrice(
-                              parseFloat(v.price) || parseFloat(form.basePrice),
-                            )}
-                          </span>
-                          <span className="text-sm font-bold text-red-500">
-                            {formatPrice(
-                              v.promotion?.discountType === "percentage"
-                                ? (parseFloat(v.price) ||
-                                    parseFloat(form.basePrice)) *
-                                    (1 - v.promotion.discountValue / 100)
-                                : Math.max(
-                                    0,
-                                    (parseFloat(v.price) ||
-                                      parseFloat(form.basePrice)) -
-                                      v.promotion.discountValue,
-                                  ),
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                        Start Date
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={v.promotion?.startDate || ""}
-                        onChange={(e) =>
-                          setVariant(idx, "promotion", {
-                            ...v.promotion,
-                            startDate: e.target.value,
-                          })
-                        }
-                        className="input text-sm py-2 dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-                        End Date
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={v.promotion?.endDate || ""}
-                        onChange={(e) =>
-                          setVariant(idx, "promotion", {
-                            ...v.promotion,
-                            endDate: e.target.value,
-                          })
-                        }
-                        className="input text-sm py-2 dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-                      />
-                    </div>
-                  </div>
-                </div>
               )}
+              <button
+                onClick={() => removeImage(idx)}
+                className="absolute top-1 right-1 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all">
+                <FiTrash2 size={12} />
+              </button>
             </div>
-          </div>
-        ))}
+          ))}
+
+          {form.images.length < MAX_IMAGES && (
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="aspect-square rounded-xl border-2 border-dashed border-dark-200 dark:border-dark-700 hover:border-primary-500 flex flex-col items-center justify-center gap-1.5 text-dark-400 hover:text-primary-600 transition-colors disabled:opacity-50">
+              {uploading ? (
+                <>
+                  <FiLoader size={18} className="animate-spin" />
+                  <span className="text-[10px] font-semibold">
+                    {uploadPct}%
+                  </span>
+                </>
+              ) : (
+                <>
+                  <FiUploadCloud size={18} />
+                  <span className="text-[10px] font-semibold">Upload</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleUpload}
+          className="hidden"
+        />
+        <p className="text-[11px] text-dark-400 mt-2">
+          First image is the thumbnail shown in the shop.
+        </p>
       </div>
 
-      <div className="flex justify-end gap-3 pb-4">
-        <Link
-          to="/admin/products"
-          className="btn-outline text-sm dark:border-dark-700 dark:text-dark-300 dark:hover:bg-dark-800">
-          Cancel
-        </Link>
+      {/* ── Actions ── */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="btn-primary gap-2 text-sm">
-          <FiSave size={15} /> {saving ? "Saving…" : "Save Product"}
+          onClick={() => handleSave("active")}
+          disabled={saving || uploading}
+          className="flex-1 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+          {saving ? (
+            <FiLoader size={15} className="animate-spin" />
+          ) : isEdit && form.status === "active" ? (
+            "Save Changes"
+          ) : (
+            "Save & Publish"
+          )}
+        </button>
+        <button
+          onClick={() => handleSave("draft")}
+          disabled={saving || uploading}
+          className="flex-1 py-3 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-700 dark:text-dark-200 hover:border-primary-500 disabled:opacity-60 text-sm font-semibold transition-colors">
+          Save as Draft
         </button>
       </div>
-    </form>
+
+      {/* ── UOM manager modal ── */}
+      {uomModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setUomModal(false)}
+          />
+          <div className="relative w-full max-w-sm bg-white dark:bg-dark-900 rounded-2xl p-5 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-dark-900 dark:text-dark-100">
+                Units of Measure
+              </h2>
+              <button
+                onClick={() => setUomModal(false)}
+                className="p-1.5 rounded-lg text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-800">
+                <FiX size={16} />
+              </button>
+            </div>
+
+            {/* Add new */}
+            <div className="flex gap-2 mb-3">
+              <input
+                value={newUom}
+                onChange={(e) => setNewUom(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddUom();
+                  }
+                }}
+                placeholder="e.g. CTN"
+                className={`${inputCls} uppercase flex-1`}
+              />
+              <button
+                onClick={() => handleAddUom()}
+                disabled={savingUom || !newUom.trim()}
+                className="px-4 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white text-sm font-semibold flex items-center gap-1.5 transition-colors">
+                {savingUom ? (
+                  <FiLoader size={14} className="animate-spin" />
+                ) : (
+                  <FiPlus size={14} />
+                )}
+                Add
+              </button>
+            </div>
+
+            {/* Quick-add chips for missing common units */}
+            {QUICK_UOMS.filter((q) => !uoms.some((u) => u.name === q)).length >
+              0 && (
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {QUICK_UOMS.filter((q) => !uoms.some((u) => u.name === q)).map(
+                  (q) => (
+                    <button
+                      key={q}
+                      onClick={() => handleAddUom(q)}
+                      disabled={savingUom}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-dark-100 dark:bg-dark-800 text-dark-500 dark:text-dark-400 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20 transition-colors">
+                      + {q}
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+
+            {/* Existing list */}
+            {uoms.length === 0 ? (
+              <p className="text-xs text-dark-400 text-center py-4">
+                No UOMs yet — add one above or tap a suggestion.
+              </p>
+            ) : (
+              <div className="divide-y divide-dark-100 dark:divide-dark-800 border border-dark-100 dark:border-dark-800 rounded-xl overflow-hidden">
+                {uoms.map((u) => (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between px-3.5 py-2.5">
+                    <span className="text-sm font-mono font-semibold text-dark-800 dark:text-dark-200">
+                      {u.name}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteUom(u)}
+                      className="p-1.5 rounded-lg text-dark-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                      <FiTrash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 // src/pages/admin/AdminLayout.jsx
-import logo from "@/assets/logo.jpeg";
+import logo from "@/assets/logo.jpg";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
 import { logoutUser } from "@/firebase/auth";
 import { useState } from "react";
 import toast from "react-hot-toast";
@@ -8,15 +9,13 @@ import {
   FiBox,
   FiExternalLink,
   FiGrid,
+  FiHome,
   FiLogOut,
   FiMenu,
-  FiMessageCircle,
-  FiPercent,
-  FiSettings,
+  FiMoon,
   FiShoppingBag,
-  FiStar,
+  FiSun,
   FiTag,
-  FiUsers,
 } from "react-icons/fi";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
@@ -24,39 +23,30 @@ const NAV = [
   { to: "/admin", label: "Dashboard", icon: FiGrid, end: true },
   { to: "/admin/products", label: "Products", icon: FiBox },
   { to: "/admin/orders", label: "Orders", icon: FiShoppingBag },
-  { to: "/admin/users", label: "Users", icon: FiUsers },
-  { to: "/admin/categories", label: "Categories", icon: FiTag },
-  { to: "/admin/chats", label: "Chats", icon: FiMessageCircle },
-  { to: "/admin/promo-codes", label: "Promo Codes", icon: FiPercent },
-  { to: "/admin/settings", icon: FiSettings, label: "Settings" },
-  { to: "/admin/reviews", label: "Reviews", icon: FiStar },
+  { to: "/admin/outlets", label: "Outlets", icon: FiHome },
+  { to: "/admin/categories", label: "Categories & Brands", icon: FiTag },
 ];
 
 export default function AdminLayout() {
-  const { profile, user } = useAuth();
+  const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [sideOpen, setSideOpen] = useState(false);
 
   const handleLogout = async () => {
     await logoutUser();
     toast.success("Logged out");
-    navigate("/");
+    navigate("/login");
   };
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white dark:bg-dark-900">
-      {/* Header — logo + admin badge below */}
+      {/* Header */}
       <div className="flex flex-col px-5 py-3 h-16 border-b border-dark-100 dark:border-dark-800 shrink-0 justify-center">
-        <div className="flex items-center gap-1">
-          <span className="text-lg font-display font-bold text-primary-600">
-            Ladybird
-          </span>
-          <span className="text-lg font-display font-bold text-dark-900 dark:text-white">
-            Marketing
-          </span>
-        </div>
-        {/* ✅ Admin badge below logo */}
-        <div className="text-[10px] bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 px-2 py-0.5 rounded-full font-medium w-fit mt-0.5">
+        <span className="text-lg font-display font-bold text-primary-600">
+          Ssfoo
+        </span>
+        <div className="text-[10px] bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 px-2 py-0.5 rounded-full font-medium w-fit">
           Admin
         </div>
       </div>
@@ -82,11 +72,17 @@ export default function AdminLayout() {
       </nav>
 
       <div className="p-3 border-t border-dark-100 dark:border-dark-800 space-y-1">
+        <button
+          onClick={toggleTheme}
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-800 transition-colors">
+          {theme === "dark" ? <FiSun size={16} /> : <FiMoon size={16} />}
+          {theme === "dark" ? "Light Mode" : "Dark Mode"}
+        </button>
         <NavLink
           to="/shop"
           target="_blank"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-800 transition-colors">
-          <FiExternalLink size={16} /> View Store
+          <FiExternalLink size={16} /> View Shop
         </NavLink>
         <button
           onClick={handleLogout}
@@ -96,12 +92,12 @@ export default function AdminLayout() {
         <div className="flex items-center gap-2.5 px-3 py-2">
           <img
             src={logo}
-            alt="Ladybird Marketing"
+            alt="Ssfoo"
             className="h-8 w-8 rounded-full object-cover shrink-0 border border-primary-100 dark:border-primary-800"
           />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-dark-800 dark:text-dark-200 truncate">
-              {profile?.displayName}
+              Administrator
             </p>
             <p className="text-[11px] text-dark-400 truncate">{user?.email}</p>
           </div>
@@ -136,7 +132,7 @@ export default function AdminLayout() {
             <FiMenu size={22} />
           </button>
           <span className="font-display font-bold text-dark-900 dark:text-white">
-            Admin Panel
+            Ssfoo Admin
           </span>
         </div>
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-dark-50 dark:bg-dark-950">

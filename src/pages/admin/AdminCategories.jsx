@@ -1,4 +1,6 @@
 // src/pages/admin/AdminCategories.jsx
+// Manages BOTH product categories (shop filter) and brands
+// (per-outlet visibility) — two identical sections, two collections.
 import { db } from "@/firebase/config";
 import {
   addDoc,
@@ -11,17 +13,20 @@ import {
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { FiCheck, FiEdit2, FiPlus, FiTrash2, FiX } from "react-icons/fi";
+import { FiCheck, FiEdit2, FiPlus, FiTag, FiTrash2, FiX } from "react-icons/fi";
 
-export default function AdminCategories() {
-  const [cats, setCats] = useState([]);
+function ManagedList({ collectionName, singular, plural, hint, placeholder }) {
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(null);
-  const blank = { name: "" };
 
   const load = async () => {
-    const snap = await getDocs(collection(db, "categories"));
-    setCats(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const snap = await getDocs(collection(db, collectionName));
+    setItems(
+      snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+    );
     setLoading(false);
   };
   useEffect(() => {
@@ -29,27 +34,38 @@ export default function AdminCategories() {
   }, []);
 
   const save = async () => {
-    if (!form.name.trim()) {
+    const name = form.name.trim();
+    if (!name) {
       toast.error("Name required");
+      return;
+    }
+    if (
+      items.some(
+        (i) => i.name.toLowerCase() === name.toLowerCase() && i.id !== form.id,
+      )
+    ) {
+      toast.error(`${name} already exists`);
       return;
     }
     try {
       if (form.id) {
-        await updateDoc(doc(db, "categories", form.id), {
-          name: form.name,
+        await updateDoc(doc(db, collectionName, form.id), {
+          name,
           updatedAt: serverTimestamp(),
         });
-        setCats((p) =>
-          p.map((c) => (c.id === form.id ? { ...c, ...form } : c)),
-        );
-        toast.success("Category updated");
+        setItems((p) => p.map((c) => (c.id === form.id ? { ...c, name } : c)));
+        toast.success(`${singular} updated`);
       } else {
-        const ref = await addDoc(collection(db, "categories"), {
-          name: form.name,
+        const ref = await addDoc(collection(db, collectionName), {
+          name,
           createdAt: serverTimestamp(),
         });
-        setCats((p) => [...p, { id: ref.id, ...form }]);
-        toast.success("Category added");
+        setItems((p) =>
+          [...p, { id: ref.id, name }].sort((a, b) =>
+            a.name.localeCompare(b.name),
+          ),
+        );
+        toast.success(`${singular} added`);
       }
       setForm(null);
     } catch {
@@ -57,47 +73,54 @@ export default function AdminCategories() {
     }
   };
 
-  const remove = async (id) => {
-    if (!confirm("Delete this category?")) return;
-    await deleteDoc(doc(db, "categories", id));
-    setCats((p) => p.filter((c) => c.id !== id));
-    toast.success("Deleted");
+  const remove = async (item) => {
+    if (
+      !window.confirm(
+        `Delete ${singular.toLowerCase()} "${item.name}"? Existing products keep the value.`,
+      )
+    )
+      return;
+    try {
+      await deleteDoc(doc(db, collectionName, item.id));
+      setItems((p) => p.filter((c) => c.id !== item.id));
+      toast.success("Deleted");
+    } catch {
+      toast.error("Delete failed");
+    }
   };
 
   return (
-    <div className="space-y-5 max-w-2xl">
+    <section className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-dark-900 dark:text-dark-100">
-            Categories
-          </h1>
-          <p className="text-dark-400 text-sm">{cats.length} categories</p>
+          <h2 className="text-lg font-bold text-dark-900 dark:text-dark-100">
+            {plural}
+          </h2>
+          <p className="text-dark-400 text-xs">
+            {items.length} {plural.toLowerCase()} · {hint}
+          </p>
         </div>
         <button
-          onClick={() => setForm(blank)}
-          className="btn-primary gap-2 text-sm py-2.5">
+          onClick={() => setForm({ name: "" })}
+          className="btn-primary gap-2 text-sm py-2">
           <FiPlus size={15} />
-          Add Category
+          Add
         </button>
       </div>
 
       {form && (
-        <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 p-5 space-y-3">
-          <h3 className="font-semibold text-dark-900 dark:text-dark-100">
-            {form.id ? "Edit" : "New"} Category
+        <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 p-4 space-y-3">
+          <h3 className="font-semibold text-sm text-dark-900 dark:text-dark-100">
+            {form.id ? "Edit" : "New"} {singular}
           </h3>
-          <div></div>
-          <div className="col-span-3">
-            <label className="block text-xs font-medium text-dark-600 dark:text-dark-400 mb-1">
-              Name *
-            </label>
-            <input
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              className="input dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100"
-              placeholder="e.g. Wallets"
-            />
-          </div>
+          <input
+            value={form.name}
+            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+            onKeyDown={(e) => e.key === "Enter" && save()}
+            className="input dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100 uppercase"
+            placeholder={placeholder}
+            autoFocus
+          />
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => setForm(null)}
@@ -115,33 +138,28 @@ export default function AdminCategories() {
 
       <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 divide-y divide-dark-50 dark:divide-dark-800">
         {loading ? (
-          <div className="p-6 text-center text-sm text-dark-400">Loading…</div>
-        ) : cats.length === 0 ? (
-          <div className="p-6 text-center text-sm text-dark-400">
-            No categories yet.
+          <div className="p-5 text-center text-sm text-dark-400">Loading…</div>
+        ) : items.length === 0 ? (
+          <div className="p-5 text-center text-sm text-dark-400">
+            No {plural.toLowerCase()} yet.
           </div>
         ) : (
-          cats.map((c) => (
+          items.map((c) => (
             <div
               key={c.id}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-dark-50/50 dark:hover:bg-dark-800/50 transition-colors">
-              <span className="text-2xl">{c.emoji}</span>
-              <div className="flex-1">
-                <p className="font-medium text-dark-900 dark:text-dark-100 text-sm">
-                  {c.name}
-                </p>
-                {c.description && (
-                  <p className="text-xs text-dark-400">{c.description}</p>
-                )}
-              </div>
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-dark-50/50 dark:hover:bg-dark-800/50 transition-colors">
+              <FiTag size={14} className="text-primary-500 shrink-0" />
+              <p className="flex-1 font-medium text-dark-900 dark:text-dark-100 text-sm">
+                {c.name}
+              </p>
               <div className="flex gap-1">
                 <button
                   onClick={() => setForm(c)}
-                  className="p-1.5 text-dark-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
+                  className="p-1.5 text-dark-400 hover:text-primary-600 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
                   <FiEdit2 size={14} />
                 </button>
                 <button
-                  onClick={() => remove(c.id)}
+                  onClick={() => remove(c)}
                   className="p-1.5 text-dark-400 hover:text-red-500 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
                   <FiTrash2 size={14} />
                 </button>
@@ -150,6 +168,38 @@ export default function AdminCategories() {
           ))
         )}
       </div>
+    </section>
+  );
+}
+
+export default function AdminCategories() {
+  return (
+    <div className="space-y-8 max-w-2xl">
+      <div>
+        <h1 className="text-2xl font-bold text-dark-900 dark:text-dark-100">
+          Categories & Brands
+        </h1>
+        <p className="text-dark-400 text-sm">
+          Categories organize the shop; brands control which outlets can see
+          which products.
+        </p>
+      </div>
+
+      <ManagedList
+        collectionName="categories"
+        singular="Category"
+        plural="Categories"
+        hint="product type, shown as shop filters"
+        placeholder="e.g. Baby Lotion"
+      />
+
+      <ManagedList
+        collectionName="brands"
+        singular="Brand"
+        plural="Brands"
+        hint="controls per-outlet product visibility"
+        placeholder="e.g. Aiken"
+      />
     </div>
   );
 }

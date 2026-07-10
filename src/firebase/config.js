@@ -1,12 +1,11 @@
-// Import the functions you need from the SDKs you need
-import { getAnalytics } from "firebase/analytics";
+// src/firebase/config.js
 import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
+// Exported so outlets.js can spin up a secondary app for account creation
+export const firebaseConfig = {
   apiKey: "AIzaSyAHVJhpFv4JxeAq6aZsRXbkF8hbPR_0sdM",
   authDomain: "ssfoo-5c133.firebaseapp.com",
   projectId: "ssfoo-5c133",
@@ -16,6 +15,9 @@ const firebaseConfig = {
   measurementId: "G-ZJ2HF14HDX",
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);
+export default app;

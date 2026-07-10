@@ -74,3 +74,51 @@ export const bulkDeleteProducts = async (ids) => {
   ids.forEach((id) => batch.delete(doc(db, COL, id)));
   return batch.commit();
 };
+
+// ── Promotion toggle (#5) ────────────────────────────
+export const toggleProductPromo = async (id, isPromo) => {
+  return updateDoc(doc(db, COL, id), {
+    isPromo,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+// ── Brand management (stored in "brands" collection) ──
+// Brands control per-outlet product visibility.
+export const getBrands = async () => {
+  const snap = await getDocs(query(collection(db, "brands"), orderBy("name")));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+};
+
+// ── UOM management (stored in "uoms" collection) ─────
+export const getUoms = async () => {
+  const snap = await getDocs(query(collection(db, "uoms"), orderBy("name")));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+};
+
+export const addUom = async (name) => {
+  return addDoc(collection(db, "uoms"), {
+    name,
+    createdAt: serverTimestamp(),
+  });
+};
+
+export const deleteUom = async (id) => {
+  return deleteDoc(doc(db, "uoms", id));
+};
+
+// ── Bulk import from Excel (#8) ──────────────────────
+// rows: array of validated product objects
+export const bulkAddProducts = async (rows) => {
+  const batch = writeBatch(db);
+  rows.forEach((row) => {
+    const ref = doc(collection(db, COL));
+    batch.set(ref, {
+      ...row,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+  await batch.commit();
+  return rows.length;
+};
