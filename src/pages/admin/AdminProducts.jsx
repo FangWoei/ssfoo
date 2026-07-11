@@ -364,7 +364,7 @@ export default function AdminProducts() {
                 return (
                   <div
                     key={p.id}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-dark-50 dark:hover:bg-dark-800/50 transition-colors">
+                    className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 hover:bg-dark-50 dark:hover:bg-dark-800/50 transition-colors">
                     <input
                       type="checkbox"
                       checked={selected.includes(p.id)}
@@ -376,7 +376,7 @@ export default function AdminProducts() {
                       alt={p.name}
                       className="w-11 h-11 rounded-lg object-cover bg-dark-100 dark:bg-dark-800 shrink-0"
                     />
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-[150px]">
                       <p className="text-sm font-semibold text-dark-900 dark:text-dark-100 truncate">
                         {p.itemCode && (
                           <span className="font-mono text-primary-600 dark:text-primary-400 mr-1.5">
@@ -388,6 +388,27 @@ export default function AdminProducts() {
                       <p className="text-xs text-dark-400">
                         {p.category || "Uncategorized"}
                         {p.brand ? ` · ${p.brand}` : ""} · MOQ {p.minOrder || 1}
+                      </p>
+                      {/* Mobile-only price + stock (desktop shows the right column) */}
+                      <p className="sm:hidden text-xs mt-0.5">
+                        <span className="font-bold text-dark-900 dark:text-dark-100">
+                          {isOnPromo(p)
+                            ? formatPrice(p.salePrice)
+                            : formatPrice(p.basePrice || 0)}
+                        </span>
+                        {isOnPromo(p) && (
+                          <span className="text-dark-400 line-through ml-1">
+                            {formatPrice(p.basePrice || 0)}
+                          </span>
+                        )}
+                        <span
+                          className={`ml-1.5 ${
+                            (p.stock || 0) > 0
+                              ? "text-dark-400"
+                              : "text-red-500 font-semibold"
+                          }`}>
+                          · {p.stock || 0} in stock
+                        </span>
                       </p>
                     </div>
 
@@ -418,41 +439,45 @@ export default function AdminProducts() {
                       )}
                     </div>
 
-                    <button
-                      onClick={() => handleTogglePromo(p)}
-                      className={`shrink-0 p-2 rounded-lg transition-colors ${
-                        p.isPromo
-                          ? "text-primary-600 bg-primary-50 dark:bg-primary-900/30"
-                          : "text-dark-300 dark:text-dark-600 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20"
-                      }`}
-                      title={p.isPromo ? "On promotion" : "Add to promotions"}>
-                      <FiTag size={15} />
-                    </button>
-
-                    <button
-                      onClick={() => toggleStatus(p)}
-                      className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-colors ${
-                        active
-                          ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 hover:bg-primary-100"
-                          : "bg-dark-100 dark:bg-dark-800 text-dark-500 dark:text-dark-400 hover:bg-dark-200"
-                      }`}
-                      title="Click to toggle">
-                      {active ? "Active" : "Draft"}
-                    </button>
-
-                    <div className="flex gap-1 shrink-0">
-                      <Link
-                        to={`/admin/products/${p.id}/edit`}
-                        className="p-2 rounded-lg text-dark-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
-                        title="Edit">
-                        <FiEdit2 size={15} />
-                      </Link>
+                    <div className="flex items-center gap-1 shrink-0 ml-auto">
                       <button
-                        onClick={() => handleDelete(p)}
-                        className="p-2 rounded-lg text-dark-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        title="Delete">
-                        <FiTrash2 size={15} />
+                        onClick={() => handleTogglePromo(p)}
+                        className={`shrink-0 p-2 rounded-lg transition-colors ${
+                          p.isPromo
+                            ? "text-primary-600 bg-primary-50 dark:bg-primary-900/30"
+                            : "text-dark-300 dark:text-dark-600 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                        }`}
+                        title={
+                          p.isPromo ? "On promotion" : "Add to promotions"
+                        }>
+                        <FiTag size={15} />
                       </button>
+
+                      <button
+                        onClick={() => toggleStatus(p)}
+                        className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-colors ${
+                          active
+                            ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 hover:bg-primary-100"
+                            : "bg-dark-100 dark:bg-dark-800 text-dark-500 dark:text-dark-400 hover:bg-dark-200"
+                        }`}
+                        title="Click to toggle">
+                        {active ? "Active" : "Draft"}
+                      </button>
+
+                      <div className="flex gap-1 shrink-0">
+                        <Link
+                          to={`/admin/products/${p.id}/edit`}
+                          className="p-2 rounded-lg text-dark-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                          title="Edit">
+                          <FiEdit2 size={15} />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(p)}
+                          className="p-2 rounded-lg text-dark-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                          title="Delete">
+                          <FiTrash2 size={15} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

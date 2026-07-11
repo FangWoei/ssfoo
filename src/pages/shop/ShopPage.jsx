@@ -187,11 +187,12 @@ export default function ShopPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 flex-wrap flex-1">
+      <div className="space-y-2">
+        {/* Category chips — horizontal swipe on mobile */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             onClick={() => setCategory("all")}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
               category === "all"
                 ? "bg-primary-600 text-white"
                 : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"
@@ -202,7 +203,7 @@ export default function ShopPage() {
             <button
               key={c.id}
               onClick={() => setCategory(c.name)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 category === c.name
                   ? "bg-primary-600 text-white"
                   : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"
@@ -211,7 +212,7 @@ export default function ShopPage() {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
@@ -243,13 +244,13 @@ export default function ShopPage() {
 
       {/* ── Brand filter (shown only when 2+ brands visible) ── */}
       {visibleBrands.length >= 2 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-dark-400 uppercase tracking-wide">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <span className="shrink-0 text-xs font-semibold text-dark-400 uppercase tracking-wide">
             Brand
           </span>
           <button
             onClick={() => setBrandFilter("all")}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
               brandFilter === "all"
                 ? "bg-dark-900 dark:bg-dark-100 text-white dark:text-dark-900"
                 : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"
@@ -260,7 +261,7 @@ export default function ShopPage() {
             <button
               key={b}
               onClick={() => setBrandFilter(b)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 brandFilter === b
                   ? "bg-dark-900 dark:bg-dark-100 text-white dark:text-dark-900"
                   : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"

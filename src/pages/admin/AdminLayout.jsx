@@ -44,7 +44,7 @@ export default function AdminLayout() {
       {/* Header */}
       <div className="flex flex-col px-5 py-3 h-16 border-b border-dark-100 dark:border-dark-800 shrink-0 justify-center">
         <span className="text-lg font-display font-bold text-primary-600">
-          SS FOO
+          Ssfoo
         </span>
         <div className="text-[10px] bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 px-2 py-0.5 rounded-full font-medium w-fit">
           Admin
@@ -92,7 +92,7 @@ export default function AdminLayout() {
         <div className="flex items-center gap-2.5 px-3 py-2">
           <img
             src={logo}
-            alt="SS FOO"
+            alt="Ssfoo"
             className="h-8 w-8 rounded-full object-cover shrink-0 border border-primary-100 dark:border-primary-800"
           />
           <div className="flex-1 min-w-0">
@@ -132,10 +132,10 @@ export default function AdminLayout() {
             <FiMenu size={22} />
           </button>
           <span className="font-display font-bold text-dark-900 dark:text-white">
-            SS FOO Admin
+            Ssfoo Admin
           </span>
         </div>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-dark-50 dark:bg-dark-950">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 bg-dark-50 dark:bg-dark-950">
           <Outlet />
         </main>
       </div>

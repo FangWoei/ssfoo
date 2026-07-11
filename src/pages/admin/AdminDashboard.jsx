@@ -212,7 +212,7 @@ export default function AdminDashboard() {
           <p className="text-dark-400 text-sm">Business overview</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 flex-wrap">
             {RANGES.map((r) => (
               <button
                 key={r.key}
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
               <Link
                 key={p.id}
                 to={`/admin/products/${p.id}/edit`}
-                className="flex items-center justify-between gap-2 bg-white dark:bg-dark-900 rounded-xl px-3 py-2 hover:ring-1 hover:ring-amber-300 transition-all">
+                className="flex items-center justify-between gap-2 min-w-0 bg-white dark:bg-dark-900 rounded-xl px-3 py-2 hover:ring-1 hover:ring-amber-300 transition-all">
                 <span className="text-xs font-medium text-dark-800 dark:text-dark-200 truncate">
                   {p.itemCode && (
                     <span className="font-mono text-primary-600 dark:text-primary-400 mr-1">
