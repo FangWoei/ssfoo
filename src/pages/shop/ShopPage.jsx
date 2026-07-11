@@ -9,9 +9,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
-  FiGrid,
   FiInfo,
-  FiList,
   FiMinus,
   FiPackage,
   FiPlus,
@@ -21,7 +19,27 @@ import {
   FiX,
 } from "react-icons/fi";
 
+// Responsive columns without CSS breakpoints (works even if the
+// stylesheet is stale): <768px → 2, <1024px → 4, ≥1024px → 6
+function useGridCols() {
+  const get = () =>
+    window.innerWidth >= 1024 ? 6 : window.innerWidth >= 768 ? 4 : 2;
+  const [cols, setCols] = useState(get);
+  useEffect(() => {
+    const onResize = () => setCols(get());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return cols;
+}
+
 export default function ShopPage() {
+  const gridCols = useGridCols();
+  const gridStyle = {
+    display: "grid",
+    gap: "1rem",
+    gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+  };
   const { profile, isAdmin } = useAuth();
   const addItem = useCartStore((s) => s.addItem);
   const cartItems = useCartStore((s) => s.items);
@@ -29,7 +47,6 @@ export default function ShopPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState("grid");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState("createdAt_desc");
@@ -188,30 +205,66 @@ export default function ShopPage() {
 
       {/* Toolbar */}
       <div className="space-y-2">
-        {/* Category chips — horizontal swipe on mobile */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <button
-            onClick={() => setCategory("all")}
-            className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              category === "all"
-                ? "bg-primary-600 text-white"
-                : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"
-            }`}>
-            All
-          </button>
-          {categories.map((c) => (
+        {/* Category filter: chips on lg+, dropdown on md/sm */}
+        {gridCols < 6 ? (
+          <div
+            className="flex items-center"
+            style={{ flexWrap: "wrap", gap: "0.5rem" }}>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="px-3 py-2 text-sm rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none"
+              style={{ flex: "1 1 150px", minWidth: 0 }}>
+              <option value="all">All categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {visibleBrands.length >= 2 && (
+              <select
+                value={brandFilter}
+                onChange={(e) => setBrandFilter(e.target.value)}
+                className="px-3 py-2 text-sm rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none"
+                style={{ flex: "1 1 150px", minWidth: 0 }}>
+                <option value="all">All brands</option>
+                {visibleBrands.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        ) : (
+          <div
+            className="flex items-center"
+            style={{ flexWrap: "wrap", gap: "0.5rem" }}>
             <button
-              key={c.id}
-              onClick={() => setCategory(c.name)}
+              onClick={() => setCategory("all")}
               className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                category === c.name
+                category === "all"
                   ? "bg-primary-600 text-white"
                   : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"
               }`}>
-              {c.name}
+              All
             </button>
-          ))}
-        </div>
+            {categories.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCategory(c.name)}
+                className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  category === c.name
+                    ? "bg-primary-600 text-white"
+                    : "bg-dark-100 dark:bg-dark-800 text-dark-600 dark:text-dark-400 hover:bg-dark-200 dark:hover:bg-dark-700"
+                }`}>
+                {c.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="flex items-center justify-end gap-2">
           <select
             value={sortBy}
@@ -222,29 +275,14 @@ export default function ShopPage() {
             <option value="price_desc">Price: High–Low</option>
             <option value="name_asc">Name A–Z</option>
           </select>
-          <div className="flex rounded-xl overflow-hidden border border-dark-200 dark:border-dark-700">
-            {[
-              ["grid", <FiGrid size={16} />],
-              ["list", <FiList size={16} />],
-            ].map(([v, icon]) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`p-2 transition-colors ${
-                  view === v
-                    ? "bg-primary-600 text-white"
-                    : "bg-white dark:bg-dark-800 text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-700"
-                }`}>
-                {icon}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
       {/* ── Brand filter (shown only when 2+ brands visible) ── */}
-      {visibleBrands.length >= 2 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {visibleBrands.length >= 2 && gridCols >= 6 && (
+        <div
+          className="flex items-center"
+          style={{ flexWrap: "wrap", gap: "0.5rem" }}>
           <span className="shrink-0 text-xs font-semibold text-dark-400 uppercase tracking-wide">
             Brand
           </span>
@@ -285,11 +323,7 @@ export default function ShopPage() {
               {promoProducts.length > 1 ? "s" : ""}
             </span>
           </div>
-          <div
-            className="grid gap-4"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-            }}>
+          <div style={gridStyle}>
             {promoProducts.map((p) => (
               <ProductCard
                 key={`promo-${p.id}`}
@@ -304,11 +338,7 @@ export default function ShopPage() {
       )}
 
       {loading ? (
-        <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-          }}>
+        <div style={gridStyle}>
           {[...Array(8)].map((_, i) => (
             <div key={i} className="card p-4 animate-pulse space-y-3">
               <div className="bg-dark-100 dark:bg-dark-800 rounded-xl aspect-square" />
@@ -337,26 +367,10 @@ export default function ShopPage() {
             </button>
           )}
         </div>
-      ) : view === "grid" ? (
-        <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-          }}>
+      ) : (
+        <div style={gridStyle}>
           {filtered.map((p) => (
             <ProductCard
-              key={p.id}
-              product={p}
-              cartItem={getCartItem(p.id)}
-              onAdd={handleAdd}
-              onInfo={() => setModal(p)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((p) => (
-            <ProductListRow
               key={p.id}
               product={p}
               cartItem={getCartItem(p.id)}
@@ -495,109 +509,6 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
               Add
             </button>
           </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── List Row ──────────────────────────────────────────
-function ProductListRow({ product, cartItem, onAdd, onInfo }) {
-  const min = product.minOrder || 1;
-  const inStock = (product.stock || 0) > 0;
-  const [qty, setQty] = useState(min);
-
-  return (
-    <div className="card dark:bg-dark-900 dark:border-dark-800 p-4 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 hover:border-primary-200 dark:hover:border-primary-800 transition-all">
-      {/* Image */}
-      <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-dark-50 dark:bg-dark-800 flex-shrink-0">
-        {product.images?.[0] ? (
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-dark-300">
-            <FiPackage size={24} />
-          </div>
-        )}
-        {!inStock && (
-          <div className="absolute inset-0 bg-dark-900/60 flex items-center justify-center">
-            <span className="text-white text-[9px] font-semibold text-center leading-tight px-1">
-              Out of Stock
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-2">
-          <h3 className="font-medium text-dark-800 dark:text-dark-200 truncate">
-            {product.name}
-          </h3>
-          <button
-            onClick={onInfo}
-            className="text-dark-400 hover:text-primary-600 transition-colors flex-shrink-0 mt-0.5">
-            <FiInfo size={14} />
-          </button>
-        </div>
-        <p className="text-xs text-dark-400 mt-0.5">{product.category}</p>
-        {min > 1 && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-            Min: {min} units
-          </p>
-        )}
-        {cartItem && (
-          <p className="text-xs text-primary-600 font-medium mt-0.5">
-            {cartItem.qty} in cart
-          </p>
-        )}
-      </div>
-
-      {/* Price + Qty + Add */}
-      <div className="flex items-center gap-3 flex-shrink-0 w-full sm:w-auto justify-between sm:justify-end">
-        {isOnPromo(product) ? (
-          <div className="flex flex-col items-end">
-            <span className="text-lg font-bold text-primary-600">
-              {formatPrice(product.salePrice)}
-            </span>
-            <span className="text-xs text-dark-400 line-through">
-              {formatPrice(product.basePrice)}
-            </span>
-          </div>
-        ) : (
-          <span className="text-lg font-bold text-primary-600">
-            {formatPrice(product.basePrice)}
-          </span>
-        )}
-        {inStock && (
-          <>
-            <div className="flex items-center border border-dark-200 dark:border-dark-700 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setQty((q) => Math.max(min, q - 1))}
-                disabled={qty <= min}
-                className="px-3 py-2 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
-                <FiMinus size={13} />
-              </button>
-              <span className="px-4 py-2 text-sm font-semibold text-dark-900 dark:text-dark-100 min-w-[3rem] text-center border-x border-dark-200 dark:border-dark-700">
-                {qty}
-              </span>
-              <button
-                onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
-                disabled={qty >= product.stock}
-                className="px-3 py-2 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
-                <FiPlus size={13} />
-              </button>
-            </div>
-            <button
-              onClick={() => onAdd(product, qty)}
-              className="btn-primary py-2 px-4 text-sm">
-              <FiShoppingCart size={14} />
-              Add
-            </button>
-          </>
         )}
       </div>
     </div>

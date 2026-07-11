@@ -34,7 +34,20 @@ const RANGES = [
   { key: "all", label: "All Time", days: null },
 ];
 
+// Stack qty/price under the name below 640px (JS-driven, CSS-proof)
+function useCompact() {
+  const get = () => window.innerWidth < 640;
+  const [compact, setCompact] = useState(get);
+  useEffect(() => {
+    const onResize = () => setCompact(get());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return compact;
+}
+
 export default function AdminDashboard() {
+  const compact = useCompact();
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [outletCount, setOutletCount] = useState(0);
@@ -381,26 +394,52 @@ export default function AdminDashboard() {
           ) : (
             <div className="space-y-2.5">
               {topProducts.map((p, idx) => (
-                <div key={idx} className="flex items-center gap-3 text-sm">
+                <div
+                  key={idx}
+                  className="text-sm"
+                  style={{
+                    display: "flex",
+                    alignItems: compact ? "flex-start" : "center",
+                    gap: "0.75rem",
+                  }}>
                   <span className="w-5 h-5 rounded-md bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-[10px] font-bold flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
-                  <span
-                    className="flex-1 min-w-0 truncate text-dark-800 dark:text-dark-200"
+                  <div
                     style={{
+                      flex: 1,
                       minWidth: 0,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      display: "flex",
+                      flexDirection: compact ? "column" : "row",
+                      alignItems: compact ? "flex-start" : "center",
+                      gap: compact ? "2px" : "0.75rem",
                     }}>
-                    {p.name}
-                  </span>
-                  <span className="text-xs text-dark-400 shrink-0">
-                    {p.qty} units
-                  </span>
-                  <span className="text-xs font-bold text-dark-900 dark:text-dark-100 shrink-0 w-20 text-right">
-                    {formatPrice(p.revenue)}
-                  </span>
+                    <span
+                      className="text-dark-800 dark:text-dark-200"
+                      style={{
+                        flex: compact ? "none" : 1,
+                        maxWidth: "100%",
+                        minWidth: 0,
+                        overflowWrap: "break-word",
+                        wordBreak: "break-word",
+                        whiteSpace: "normal",
+                      }}>
+                      {p.name}
+                    </span>
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "0.75rem",
+                      }}>
+                      <span className="text-xs text-dark-400">
+                        {p.qty} units
+                      </span>
+                      <span className="text-xs font-bold text-dark-900 dark:text-dark-100">
+                        {formatPrice(p.revenue)}
+                      </span>
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -420,26 +459,51 @@ export default function AdminDashboard() {
               {topOutlets.map((o, idx) => (
                 <div
                   key={o.outletId}
-                  className="flex items-center gap-3 text-sm">
+                  className="text-sm"
+                  style={{
+                    display: "flex",
+                    alignItems: compact ? "flex-start" : "center",
+                    gap: "0.75rem",
+                  }}>
                   <span className="w-5 h-5 rounded-md bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-[10px] font-bold flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
-                  <span
-                    className="flex-1 min-w-0 truncate text-dark-800 dark:text-dark-200"
+                  <div
                     style={{
+                      flex: 1,
                       minWidth: 0,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
+                      display: "flex",
+                      flexDirection: compact ? "column" : "row",
+                      alignItems: compact ? "flex-start" : "center",
+                      gap: compact ? "2px" : "0.75rem",
                     }}>
-                    {o.name}
-                  </span>
-                  <span className="text-xs text-dark-400 shrink-0">
-                    {o.count} orders
-                  </span>
-                  <span className="text-xs font-bold text-dark-900 dark:text-dark-100 shrink-0 w-20 text-right">
-                    {formatPrice(o.revenue)}
-                  </span>
+                    <span
+                      className="text-dark-800 dark:text-dark-200"
+                      style={{
+                        flex: compact ? "none" : 1,
+                        maxWidth: "100%",
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}>
+                      {o.name}
+                    </span>
+                    <span
+                      style={{
+                        display: "flex",
+                        gap: "0.6rem",
+                        flexShrink: 0,
+                        alignItems: "baseline",
+                      }}>
+                      <span className="text-xs text-dark-400">
+                        {o.count} orders
+                      </span>
+                      <span className="text-xs font-bold text-dark-900 dark:text-dark-100">
+                        {formatPrice(o.revenue)}
+                      </span>
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
