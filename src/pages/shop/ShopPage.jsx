@@ -2,7 +2,7 @@
 import RefreshControl from "@/components/common/RefreshControl";
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
-import { getCategories, getProducts } from "@/firebase/products";
+import { getAllProducts, getCategories } from "@/firebase/products";
 import { formatPrice, truncate } from "@/utils/helpers";
 import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
 import { useEffect, useState } from "react";
@@ -38,9 +38,9 @@ export default function ShopPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchShop = async () => {
-    const [cats, { products: prods }] = await Promise.all([
+    const [cats, prods] = await Promise.all([
       getCategories(),
-      getProducts({ pageSize: 100 }),
+      getAllProducts(),
     ]);
     setCategories(cats);
     setProducts(prods.filter((p) => p.status === "active"));
@@ -285,7 +285,11 @@ export default function ShopPage() {
               {promoProducts.length > 1 ? "s" : ""}
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div
+            className="grid gap-4"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+            }}>
             {promoProducts.map((p) => (
               <ProductCard
                 key={`promo-${p.id}`}
@@ -300,7 +304,11 @@ export default function ShopPage() {
       )}
 
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div
+          className="grid gap-4"
+          style={{
+            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+          }}>
           {[...Array(8)].map((_, i) => (
             <div key={i} className="card p-4 animate-pulse space-y-3">
               <div className="bg-dark-100 dark:bg-dark-800 rounded-xl aspect-square" />
@@ -330,7 +338,11 @@ export default function ShopPage() {
           )}
         </div>
       ) : view === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div
+          className="grid gap-4"
+          style={{
+            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+          }}>
           {filtered.map((p) => (
             <ProductCard
               key={p.id}
@@ -377,12 +389,15 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
   return (
     <div className="card dark:bg-dark-900 dark:border-dark-800 overflow-hidden group hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all duration-200 flex flex-col">
       {/* Image */}
-      <div className="relative aspect-square overflow-hidden bg-dark-50 dark:bg-dark-800">
+      <div
+        className="relative aspect-square overflow-hidden bg-dark-50 dark:bg-dark-800"
+        style={{ aspectRatio: "1 / 1", overflow: "hidden" }}>
         {product.images?.[0] ? (
           <img
             src={product.images[0]}
             alt={product.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-dark-300">

@@ -5,9 +5,9 @@ import {
   bulkAddProducts,
   bulkDeleteProducts,
   deleteProduct,
+  getAllProducts,
   getBrands,
   getCategories,
-  getProducts,
   toggleProductPromo,
   updateProduct,
 } from "@/firebase/products";
@@ -43,6 +43,7 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
+  const [brandFilter, setBrandFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selected, setSelected] = useState([]);
   const [importModal, setImportModal] = useState(false);
@@ -53,8 +54,8 @@ export default function AdminProducts() {
 
   const load = async () => {
     try {
-      const [{ products: prods }, cats, brandList] = await Promise.all([
-        getProducts({ pageSize: 100 }),
+      const [prods, cats, brandList] = await Promise.all([
+        getAllProducts(),
         getCategories(),
         getBrands(),
       ]);
@@ -75,8 +76,8 @@ export default function AdminProducts() {
   const doRefresh = async () => {
     setRefreshing(true);
     try {
-      const [{ products: prods }, cats] = await Promise.all([
-        getProducts({ pageSize: 100 }),
+      const [prods, cats] = await Promise.all([
+        getAllProducts(),
         getCategories(),
       ]);
       setProducts(prods);
@@ -94,12 +95,16 @@ export default function AdminProducts() {
       list = list.filter((p) => (p.status || "draft") === statusFilter);
     if (catFilter !== "all")
       list = list.filter((p) => p.category === catFilter);
+    if (brandFilter !== "all")
+      list = list.filter((p) =>
+        brandFilter === "__none__" ? !p.brand : p.brand === brandFilter,
+      );
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.itemCode?.toLowerCase().includes(q));
+      list = list.filter((p) => p.name?.toLowerCase().includes(q));
     }
     return list;
-  }, [products, statusFilter, catFilter, search]);
+  }, [products, statusFilter, catFilter, brandFilter, search]);
 
   const toggleStatus = async (product) => {
     const next = product.status === "active" ? "draft" : "active";
@@ -292,6 +297,19 @@ export default function AdminProducts() {
           {categories.map((c) => (
             <option key={c.id} value={c.name}>
               {c.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={brandFilter}
+          onChange={(e) => setBrandFilter(e.target.value)}
+          className="px-3 py-2 text-xs rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none">
+          <option value="all">All brands</option>
+          <option value="__none__">No brand</option>
+          {brands.map((b) => (
+            <option key={b.id} value={b.name}>
+              {b.name}
             </option>
           ))}
         </select>

@@ -3,7 +3,7 @@ import LoadingSpinner from "@/components/common/LoadingSpinner";
 import RefreshControl from "@/components/common/RefreshControl";
 import { getAllOrders } from "@/firebase/orders";
 import { getAllOutlets } from "@/firebase/outlets";
-import { getProducts } from "@/firebase/products";
+import { getAllProducts } from "@/firebase/products";
 import { LOW_STOCK_THRESHOLD } from "@/utils/config";
 import { formatPrice } from "@/utils/helpers";
 import { formatOrderDate, shortId } from "@/utils/orderHelpers";
@@ -45,11 +45,11 @@ export default function AdminDashboard() {
   const fetchAll = async () => {
     const [ords, prods, outs] = await Promise.all([
       getAllOrders({ pageSize: 300 }),
-      getProducts({ pageSize: 200 }),
+      getAllProducts(),
       getAllOutlets(),
     ]);
     setOrders(ords);
-    setProducts(prods.products);
+    setProducts(prods);
     setOutletCount(outs.filter((o) => o.active !== false).length);
   };
 
@@ -257,7 +257,14 @@ export default function AdminDashboard() {
                 key={p.id}
                 to={`/admin/products/${p.id}/edit`}
                 className="flex items-center justify-between gap-2 min-w-0 bg-white dark:bg-dark-900 rounded-xl px-3 py-2 hover:ring-1 hover:ring-amber-300 transition-all">
-                <span className="text-xs font-medium text-dark-800 dark:text-dark-200 truncate">
+                <span
+                  className="text-xs font-medium text-dark-800 dark:text-dark-200 truncate"
+                  style={{
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}>
                   {p.itemCode && (
                     <span className="font-mono text-primary-600 dark:text-primary-400 mr-1">
                       {p.itemCode}
@@ -378,7 +385,14 @@ export default function AdminDashboard() {
                   <span className="w-5 h-5 rounded-md bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-[10px] font-bold flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
-                  <span className="flex-1 min-w-0 truncate text-dark-800 dark:text-dark-200">
+                  <span
+                    className="flex-1 min-w-0 truncate text-dark-800 dark:text-dark-200"
+                    style={{
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}>
                     {p.name}
                   </span>
                   <span className="text-xs text-dark-400 shrink-0">
@@ -410,7 +424,14 @@ export default function AdminDashboard() {
                   <span className="w-5 h-5 rounded-md bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 text-[10px] font-bold flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
-                  <span className="flex-1 min-w-0 truncate text-dark-800 dark:text-dark-200">
+                  <span
+                    className="flex-1 min-w-0 truncate text-dark-800 dark:text-dark-200"
+                    style={{
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}>
                     {o.name}
                   </span>
                   <span className="text-xs text-dark-400 shrink-0">
@@ -457,7 +478,14 @@ export default function AdminDashboard() {
                     New
                   </span>
                 )}
-                <span className="flex-1 min-w-0 truncate text-dark-500 dark:text-dark-400">
+                <span
+                  className="flex-1 min-w-0 truncate text-dark-500 dark:text-dark-400"
+                  style={{
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}>
                   {o.outletName || o.outletId}
                 </span>
                 <span className="text-xs text-dark-400 shrink-0 hidden sm:block">

@@ -40,6 +40,16 @@ export const getProducts = async ({
   };
 };
 
+// Fetch the ENTIRE catalogue (no limit). Needed because the client
+// has 1500-2000 products — pageSize-limited queries silently hide
+// everything beyond the first page.
+export const getAllProducts = async () => {
+  const snap = await getDocs(
+    query(collection(db, COL), orderBy("createdAt", "desc")),
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+};
+
 export const getProduct = async (id) => {
   const snap = await getDoc(doc(db, COL, id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
