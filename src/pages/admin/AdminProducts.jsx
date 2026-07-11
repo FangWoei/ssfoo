@@ -96,7 +96,7 @@ export default function AdminProducts() {
       list = list.filter((p) => p.category === catFilter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.name?.toLowerCase().includes(q));
+      list = list.filter((p) => p.itemCode?.toLowerCase().includes(q));
     }
     return list;
   }, [products, statusFilter, catFilter, search]);
