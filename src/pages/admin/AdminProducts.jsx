@@ -101,7 +101,7 @@ export default function AdminProducts() {
       );
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.name?.toLowerCase().includes(q));
+      list = list.filter((p) => p.itemCode?.toLowerCase().includes(q));
     }
     return list;
   }, [products, statusFilter, catFilter, brandFilter, search]);
