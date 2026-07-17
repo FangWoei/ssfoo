@@ -108,7 +108,7 @@ export default function ShopPage() {
       const matchSearch =
         !search ||
         p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.description?.toLowerCase().includes(search.toLowerCase());
+        p.itemCode?.toLowerCase().includes(search.toLowerCase());
       return matchCat && matchBrand && matchSearch;
     })
     .sort((a, b) => {
@@ -405,7 +405,8 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
       {/* Image */}
       <div
         className="relative aspect-square overflow-hidden bg-dark-50 dark:bg-dark-800"
-        style={{ aspectRatio: "1 / 1", overflow: "hidden" }}>
+        style={{ aspectRatio: "1 / 1", overflow: "hidden" }}
+        onClick={onInfo}>
         {product.images?.[0] ? (
           <img
             src={product.images[0]}
@@ -450,6 +451,9 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
       {/* Body */}
       <div className="p-3 flex flex-col gap-2 flex-1">
         <div>
+          <h1 className="text-dark-800 dark:text-dark-200 text-xl font-mono font-semibold leading-snug">
+            {truncate(product.itemCode)}
+          </h1>
           <h3 className="text-sm font-medium text-dark-800 dark:text-dark-200 leading-snug">
             {truncate(product.name, 45)}
           </h3>
@@ -670,13 +674,6 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
                 </span>
               )}
             </div>
-
-            {/* Description */}
-            {product.description && (
-              <p className="text-sm text-dark-600 dark:text-dark-400 leading-relaxed">
-                {product.description}
-              </p>
-            )}
 
             {cartItem && (
               <p className="text-xs text-primary-600 dark:text-primary-400 font-medium">
