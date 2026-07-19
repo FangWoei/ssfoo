@@ -118,17 +118,25 @@ export const deleteUom = async (id) => {
 };
 
 // ── Bulk import from Excel (#8) ──────────────────────
-// rows: array of validated product objects
-export const bulkAddProducts = async (rows) => {
-  const batch = writeBatch(db);
-  rows.forEach((row) => {
-    const ref = doc(collection(db, COL));
-    batch.set(ref, {
-      ...row,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+// rows: array of validated product objects.
+// Firestore caps a batch at 500 writes, so large imports
+// (the client has 1500-2000 products) are split into chunks.
+export const bulkAddProducts = async (rows, onProgress) => {
+  const CHUNK = 450;
+  let done = 0;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    rows.slice(i, i + CHUNK).forEach((row) => {
+      const ref = doc(collection(db, COL));
+      batch.set(ref, {
+        ...row,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
     });
-  });
-  await batch.commit();
+    await batch.commit();
+    done = Math.min(i + CHUNK, rows.length);
+    onProgress?.(done, rows.length);
+  }
   return rows.length;
 };

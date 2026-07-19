@@ -7,40 +7,58 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   updateDoc,
   where,
-  writeBatch,
 } from "firebase/firestore";
 import { db } from "./config";
 
 const COL = "orders";
 
 export const placeOrder = async (userId, orderData) => {
-  const batch = writeBatch(db);
   const orderRef = doc(collection(db, COL));
 
-  batch.set(orderRef, {
-    ...orderData,
-    userId,
-    createdAt: serverTimestamp(),
-  });
+  // Transaction: reads current stock and writes atomically, so two
+  // outlets ordering the same product at the same moment can't
+  // oversell. If any item lacks stock, the whole order fails with a
+  // clear message (checkout shows it as a toast).
+  await runTransaction(db, async (tx) => {
+    // 1. Read every product first (transactions require reads before writes)
+    const reads = [];
+    for (const item of orderData.items) {
+      const ref = doc(db, "products", item.productId);
+      reads.push({ item, ref, snap: await tx.get(ref) });
+    }
 
-  // Reduce flat stock
-  for (const item of orderData.items) {
-    const productRef = doc(db, "products", item.productId);
-    const productSnap = await getDoc(productRef);
-    if (!productSnap.exists()) continue;
-    const currentStock = productSnap.data().stock || 0;
-    const newStock = Math.max(0, currentStock - item.qty);
-    batch.update(productRef, {
-      stock: newStock,
-      inStock: newStock > 0,
-      ...(newStock === 0 ? { status: "draft" } : {}),
+    // 2. Validate stock
+    for (const { item, snap } of reads) {
+      if (!snap.exists()) continue; // product deleted — allow, skip stock
+      const current = snap.data().stock || 0;
+      if (current < item.qty) {
+        throw new Error(
+          `Not enough stock for "${item.name}" — only ${current} left. Please adjust your cart.`,
+        );
+      }
+    }
+
+    // 3. Write order + decrement stock
+    tx.set(orderRef, {
+      ...orderData,
+      userId,
+      createdAt: serverTimestamp(),
     });
-  }
 
-  await batch.commit();
+    for (const { item, ref, snap } of reads) {
+      if (!snap.exists()) continue;
+      const newStock = (snap.data().stock || 0) - item.qty;
+      tx.update(ref, {
+        stock: newStock,
+        inStock: newStock > 0,
+        ...(newStock === 0 ? { status: "draft" } : {}),
+      });
+    }
+  });
 
   // Clear cart
   try {
