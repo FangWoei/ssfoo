@@ -11,6 +11,7 @@ import {
   toggleProductPromo,
   updateProduct,
 } from "@/firebase/products";
+import usePersistedState from "@/hooks/usePersistedState";
 import { formatPrice } from "@/utils/helpers";
 import {
   downloadProductTemplate,
@@ -41,10 +42,10 @@ export default function AdminProducts() {
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [catFilter, setCatFilter] = useState("all");
-  const [brandFilter, setBrandFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = usePersistedState("ap-search", "");
+  const [catFilter, setCatFilter] = usePersistedState("ap-cat", "all");
+  const [brandFilter, setBrandFilter] = usePersistedState("ap-brand", "all");
+  const [statusFilter, setStatusFilter] = usePersistedState("ap-status", "all");
   const [selected, setSelected] = useState([]);
   const [importModal, setImportModal] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -101,7 +102,7 @@ export default function AdminProducts() {
       );
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.itemCode?.toLowerCase().includes(q));
+      list = list.filter((p) => p.name?.toLowerCase().includes(q));
     }
     return list;
   }, [products, statusFilter, catFilter, brandFilter, search]);
@@ -392,7 +393,7 @@ export default function AdminProducts() {
                     <img
                       src={p.images?.[0] || PLACEHOLDER}
                       alt={p.name}
-                      className="w-11 h-11 rounded-lg object-cover bg-dark-100 dark:bg-dark-800 shrink-0"
+                      className="w-11 h-11 rounded-lg object-contain bg-white border border-dark-100 dark:border-dark-700 shrink-0"
                     />
                     <div className="flex-1 min-w-[150px]">
                       <p className="text-sm font-semibold text-dark-900 dark:text-dark-100 truncate">

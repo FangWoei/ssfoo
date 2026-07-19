@@ -60,6 +60,9 @@ export default function AdminProductForm() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadPct, setUploadPct] = useState(0);
+  const [previewImg, setPreviewImg] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [imgUrl, setImgUrl] = useState("");
   const [uoms, setUoms] = useState([]);
   const [brands, setBrands] = useState([]);
   const [uomModal, setUomModal] = useState(false);
@@ -84,7 +87,12 @@ export default function AdminProductForm() {
             navigate("/admin/products");
             return;
           }
-          setForm({ ...BLANK, ...p });
+          setForm({
+            ...BLANK,
+            ...p,
+            category: (p.category || "").trim(),
+            brand: p.brand || "",
+          });
         }
       } catch (e) {
         console.error("Load failed:", e);
@@ -97,8 +105,7 @@ export default function AdminProductForm() {
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const handleUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
+  const addFiles = async (files) => {
     if (!files.length) return;
     const room = MAX_IMAGES - form.images.length;
     if (room <= 0) {
@@ -128,6 +135,110 @@ export default function AdminProductForm() {
       if (fileRef.current) fileRef.current.value = "";
     }
   };
+
+  const handleUpload = (e) => addFiles(Array.from(e.target.files || []));
+
+  // ── Add an image from the web (URL / drag / paste) ──
+  // Tries to copy it into Firebase Storage; if the site blocks
+  // cross-origin download, links the URL directly instead.
+  const addImageFromUrl = async (rawUrl) => {
+    const url = (rawUrl || "").trim();
+    if (!url) return;
+    if (form.images.length >= MAX_IMAGES) {
+      toast.error(`Maximum ${MAX_IMAGES} images`);
+      return;
+    }
+    setUploading(true);
+    setUploadPct(0);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("fetch failed");
+      const blob = await res.blob();
+      if (!blob.type.startsWith("image/")) throw new Error("not an image");
+      const ext = (blob.type.split("/")[1] || "jpg").split("+")[0];
+      const file = new File([blob], `web-image-${Date.now()}.${ext}`, {
+        type: blob.type,
+      });
+      setUploading(false);
+      await addFiles([file]);
+    } catch {
+      // CORS or blocked — link the image directly
+      setUploading(false);
+      setForm((f) => ({ ...f, images: [...f.images, url] }));
+      toast("🔗 Linked image from the web (couldn't copy it)", {
+        duration: 3500,
+      });
+    }
+  };
+
+  const extractDroppedUrl = (dt) => {
+    const uri = dt.getData("text/uri-list") || dt.getData("text/plain");
+    if (uri && /^(https?:|data:image)/i.test(uri.trim()))
+      return uri.trim().split("\n")[0];
+    const html = dt.getData("text/html");
+    if (html) {
+      const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (m) return m[1];
+    }
+    return "";
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files || []).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+    if (files.length) return addFiles(files);
+    const url = extractDroppedUrl(e.dataTransfer);
+    if (url) {
+      if (url.startsWith("data:image")) {
+        // data URI → convert to a real file
+        fetch(url)
+          .then((r) => r.blob())
+          .then((b) =>
+            addFiles([
+              new File([b], `pasted-${Date.now()}.png`, { type: b.type }),
+            ]),
+          );
+      } else {
+        addImageFromUrl(url);
+      }
+    }
+  };
+
+  // Ctrl+V anywhere on this page: pasted image (Copy image → paste)
+  // uploads directly; pasted URL text is fetched.
+  useEffect(() => {
+    const onPaste = (e) => {
+      const active = document.activeElement;
+      // don't hijack pasting text into normal inputs
+      const files = Array.from(e.clipboardData?.files || []).filter((f) =>
+        f.type.startsWith("image/"),
+      );
+      if (files.length) {
+        e.preventDefault();
+        addFiles(files);
+        return;
+      }
+      if (
+        active &&
+        (active.tagName === "INPUT" || active.tagName === "TEXTAREA")
+      )
+        return;
+      const txt = e.clipboardData?.getData("text/plain")?.trim();
+      if (
+        txt &&
+        /^https?:\/\/.+\.(png|jpe?g|webp|gif|bmp)([?#].*)?$/i.test(txt)
+      ) {
+        e.preventDefault();
+        addImageFromUrl(txt);
+      }
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.images.length, id]);
 
   const removeImage = (idx) =>
     setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
@@ -279,16 +390,6 @@ export default function AdminProductForm() {
           </div>
         </div>
 
-        <div>
-          <label className={labelCls}>Description</label>
-          <textarea
-            value={form.description}
-            onChange={set("description")}
-            rows={3}
-            className={`${inputCls} resize-none`}
-          />
-        </div>
-
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Category *</label>
@@ -297,6 +398,10 @@ export default function AdminProductForm() {
               onChange={set("category")}
               className={inputCls}>
               <option value="">Select category…</option>
+              {form.category &&
+                !categories.some((c) => c.name === form.category) && (
+                  <option value={form.category}>{form.category}</option>
+                )}
               {categories.map((c) => (
                 <option key={c.id} value={c.name}>
                   {c.name}
@@ -500,7 +605,9 @@ export default function AdminProductForm() {
               <img
                 src={url}
                 alt=""
-                className="w-full h-full rounded-xl object-cover bg-dark-100 dark:bg-dark-800"
+                onClick={() => setPreviewImg(url)}
+                title="Click to enlarge"
+                className="w-full h-full rounded-xl object-contain bg-white border border-dark-100 dark:border-dark-700 cursor-zoom-in"
               />
               {idx === 0 && (
                 <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-primary-600 text-white text-[9px] font-bold">
@@ -519,7 +626,17 @@ export default function AdminProductForm() {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="aspect-square rounded-xl border-2 border-dashed border-dark-200 dark:border-dark-700 hover:border-primary-500 flex flex-col items-center justify-center gap-1.5 text-dark-400 hover:text-primary-600 transition-colors disabled:opacity-50">
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              className={`aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors disabled:opacity-50 ${
+                dragOver
+                  ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-600"
+                  : "border-dark-200 dark:border-dark-700 hover:border-primary-500 text-dark-400 hover:text-primary-600"
+              }`}>
               {uploading ? (
                 <>
                   <FiLoader size={18} className="animate-spin" />
@@ -544,6 +661,42 @@ export default function AdminProductForm() {
           onChange={handleUpload}
           className="hidden"
         />
+
+        {/* Add from the web */}
+        {form.images.length < MAX_IMAGES && (
+          <div className="mt-3">
+            <div className="flex items-center gap-2">
+              <input
+                value={imgUrl}
+                onChange={(e) => setImgUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addImageFromUrl(imgUrl);
+                    setImgUrl("");
+                  }
+                }}
+                placeholder="Paste an image link from the web…"
+                className={`${inputCls} text-xs`}
+                style={{ flex: 1, minWidth: 0 }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  addImageFromUrl(imgUrl);
+                  setImgUrl("");
+                }}
+                disabled={uploading || !imgUrl.trim()}
+                className="px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white text-xs font-semibold shrink-0 transition-colors">
+                Add
+              </button>
+            </div>
+            <p className="text-[11px] text-dark-400 mt-1.5">
+              💡 Tip: right-click any image online → <b>Copy image</b> → press{" "}
+              <b>Ctrl+V</b> here, or drag the image onto the upload box.
+            </p>
+          </div>
+        )}
         <p className="text-[11px] text-dark-400 mt-2">
           First image is the thumbnail shown in the shop.
         </p>
@@ -570,6 +723,29 @@ export default function AdminProductForm() {
           Save as Draft
         </button>
       </div>
+
+      {/* ── Image lightbox ── */}
+      {previewImg && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80"
+          onClick={() => setPreviewImg(null)}>
+          <img
+            src={previewImg}
+            alt="Preview"
+            className="rounded-2xl bg-white"
+            style={{
+              maxWidth: "92vw",
+              maxHeight: "88vh",
+              objectFit: "contain",
+            }}
+          />
+          <button
+            onClick={() => setPreviewImg(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center transition-colors">
+            <FiX size={20} />
+          </button>
+        </div>
+      )}
 
       {/* ── UOM manager modal ── */}
       {uomModal && (

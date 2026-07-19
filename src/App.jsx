@@ -1,10 +1,12 @@
 // src/App.jsx
+import EnterToNext from "@/components/common/EnterToNext";
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import {
   AdminRoute,
   GuestRoute,
   OutletRoute,
 } from "@/components/common/ProtectedRoute";
+import ScrollToTop from "@/components/common/ScrollToTop";
 import Layout from "@/components/layout/Layout";
 import { AuthProvider } from "@/context/AuthContext";
 import AdminLayout from "@/pages/admin/AdminLayout";
@@ -34,6 +36,7 @@ const AdminOrders = lazy(() => import("@/pages/admin/AdminOrders"));
 const AdminOrderDetail = lazy(() => import("@/pages/admin/AdminOrderDetail"));
 const AdminOutlets = lazy(() => import("@/pages/admin/AdminOutlets"));
 const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
+const AdminChats = lazy(() => import("@/pages/admin/AdminChats"));
 
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 
@@ -42,6 +45,8 @@ const Fallback = () => <LoadingSpinner fullPage />;
 export default function App() {
   return (
     <AuthProvider>
+      <EnterToNext />
+      <ScrollToTop />
       <Suspense fallback={<Fallback />}>
         <Routes>
           {/* ── Public ── */}
@@ -95,6 +100,7 @@ export default function App() {
             <Route path="orders/:id" element={<AdminOrderDetail />} />
             <Route path="outlets" element={<AdminOutlets />} />
             <Route path="categories" element={<AdminCategories />} />
+            <Route path="chats" element={<AdminChats />} />
           </Route>
 
           {/* ── 404 ── */}

@@ -3,6 +3,7 @@ import RefreshControl from "@/components/common/RefreshControl";
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
 import { getAllProducts, getCategories } from "@/firebase/products";
+import usePersistedState from "@/hooks/usePersistedState";
 import { formatPrice, truncate } from "@/utils/helpers";
 import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
 import { useEffect, useState } from "react";
@@ -47,10 +48,10 @@ export default function ShopPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
-  const [sortBy, setSortBy] = useState("createdAt_desc");
-  const [brandFilter, setBrandFilter] = useState("all");
+  const [search, setSearch] = usePersistedState("shop-search", "");
+  const [category, setCategory] = usePersistedState("shop-cat", "all");
+  const [sortBy, setSortBy] = usePersistedState("shop-sort", "createdAt_desc");
+  const [brandFilter, setBrandFilter] = usePersistedState("shop-brand", "all");
   const [modal, setModal] = useState(null); // product | null
   const [refreshing, setRefreshing] = useState(false);
 
@@ -105,10 +106,11 @@ export default function ShopPage() {
     .filter((p) => {
       const matchCat = category === "all" || p.category === category;
       const matchBrand = brandFilter === "all" || p.brand === brandFilter;
+      const q = search.toLowerCase();
       const matchSearch =
         !search ||
-        p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.itemCode?.toLowerCase().includes(search.toLowerCase());
+        p.name.toLowerCase().includes(q) ||
+        p.itemCode?.toLowerCase().includes(q);
       return matchCat && matchBrand && matchSearch;
     })
     .sort((a, b) => {
@@ -356,11 +358,12 @@ export default function ShopPage() {
           <p className="text-dark-400 text-sm mt-1">
             Try adjusting your search or filter
           </p>
-          {(search || category !== "all") && (
+          {(search || category !== "all" || brandFilter !== "all") && (
             <button
               onClick={() => {
                 setSearch("");
                 setCategory("all");
+                setBrandFilter("all");
               }}
               className="btn-outline mt-4 text-sm">
               Clear filters
@@ -404,15 +407,20 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
     <div className="card dark:bg-dark-900 dark:border-dark-800 overflow-hidden group hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all duration-200 flex flex-col">
       {/* Image */}
       <div
-        className="relative aspect-square overflow-hidden bg-dark-50 dark:bg-dark-800"
-        style={{ aspectRatio: "1 / 1", overflow: "hidden" }}
-        onClick={onInfo}>
+        onClick={onInfo}
+        className="relative aspect-square overflow-hidden bg-white cursor-pointer"
+        style={{
+          aspectRatio: "1 / 1",
+          overflow: "hidden",
+          background: "#fff",
+          cursor: "pointer",
+        }}>
         {product.images?.[0] ? (
           <img
             src={product.images[0]}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-dark-300">
@@ -451,9 +459,11 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
       {/* Body */}
       <div className="p-3 flex flex-col gap-2 flex-1">
         <div>
-          <h1 className="text-dark-800 dark:text-dark-200 text-xl font-mono font-semibold leading-snug">
-            {truncate(product.itemCode)}
-          </h1>
+          {product.itemCode && (
+            <p className="text-xs font-mono font-bold text-primary-600 dark:text-primary-400 leading-snug">
+              {product.itemCode}
+            </p>
+          )}
           <h3 className="text-sm font-medium text-dark-800 dark:text-dark-200 leading-snug">
             {truncate(product.name, 45)}
           </h3>
@@ -521,6 +531,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
 
 // ── Info Modal (redesigned, responsive) ───────────────
 function ProductModal({ product, cartItem, onAdd, onClose }) {
+  const { isOutlet } = useAuth();
   const min = product.minOrder || 1;
   const inStock = (product.stock || 0) > 0;
   const promo = isOnPromo(product);
@@ -550,7 +561,7 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-dark-900/70 backdrop-blur-sm sm:p-4">
       <div className="bg-white dark:bg-dark-900 w-full sm:max-w-3xl sm:rounded-3xl rounded-t-3xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col sm:flex-row animate-[slideUp_0.25s_ease-out]">
         {/* ── Left: image gallery ── */}
-        <div className="sm:w-1/2 bg-dark-50 dark:bg-dark-800 relative shrink-0 flex items-start justify-center self-stretch">
+        <div className="sm:w-1/2 bg-white relative shrink-0 flex items-start justify-center self-stretch">
           {/* Close (mobile floats over image) */}
           <button
             onClick={onClose}
@@ -569,7 +580,8 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
               <img
                 src={product.images[selImg]}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
+                style={{ objectFit: "contain" }}
               />
             ) : (
               <div className="w-full h-full min-h-[200px] flex items-center justify-center text-dark-300">
@@ -680,6 +692,27 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
                 {cartItem.qty} unit{cartItem.qty !== 1 ? "s" : ""} already in
                 cart
               </p>
+            )}
+
+            {isOutlet && (
+              <button
+                onClick={() => {
+                  window.dispatchEvent(
+                    new CustomEvent("ssfoo:chat-product", {
+                      detail: {
+                        id: product.id,
+                        itemCode: product.itemCode || "",
+                        name: product.name,
+                        image: product.images?.[0] || "",
+                        price: price,
+                      },
+                    }),
+                  );
+                  onClose();
+                }}
+                className="self-start inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 hover:bg-primary-100 dark:hover:bg-primary-900/40 px-3 py-2 rounded-xl transition-colors">
+                💬 Ask admin about this product
+              </button>
             )}
           </div>
 

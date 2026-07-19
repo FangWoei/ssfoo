@@ -2,6 +2,7 @@
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import RefreshControl from "@/components/common/RefreshControl";
 import { getAllOrders, toggleOrderDone } from "@/firebase/orders";
+import usePersistedState from "@/hooks/usePersistedState";
 import { exportOrdersToExcel } from "@/utils/exporters";
 import { formatPrice } from "@/utils/helpers";
 import { formatOrderDate, shortId } from "@/utils/orderHelpers";
@@ -34,9 +35,9 @@ const TIME_RANGES = [
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("new");
-  const [search, setSearch] = useState("");
-  const [timeRange, setTimeRange] = useState("all");
+  const [tab, setTab] = usePersistedState("ao-tab", "new");
+  const [search, setSearch] = usePersistedState("ao-search", "");
+  const [timeRange, setTimeRange] = usePersistedState("ao-time", "all");
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchOrders = async () => {

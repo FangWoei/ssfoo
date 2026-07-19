@@ -12,6 +12,7 @@ import {
   FiHome,
   FiLogOut,
   FiMenu,
+  FiMessageCircle,
   FiMoon,
   FiShoppingBag,
   FiSun,
@@ -25,6 +26,7 @@ const NAV = [
   { to: "/admin/orders", label: "Orders", icon: FiShoppingBag },
   { to: "/admin/outlets", label: "Outlets", icon: FiHome },
   { to: "/admin/categories", label: "Categories & Brands", icon: FiTag },
+  { to: "/admin/chats", label: "Chats", icon: FiMessageCircle },
 ];
 
 export default function AdminLayout() {

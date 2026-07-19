@@ -15,13 +15,15 @@ import {
 } from "react-icons/fi";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 
-const PLACEHOLDER = "https://placehold.co/200x200/ccfbf1/0d9488?text=Item";
+const PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' rx='12' fill='%23ccfbf1'/%3E%3Ctext x='48' y='62' font-size='38' text-anchor='middle'%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
+  const updateNote = useCartStore((s) => s.updateNote);
 
   const [remarks, setRemarks] = useState("");
   const [placing, setPlacing] = useState(false);
@@ -171,6 +173,9 @@ export default function CheckoutPage() {
                     <img
                       src={item.thumbnail || item.image || PLACEHOLDER}
                       alt={item.name}
+                      onError={(e) => {
+                        e.currentTarget.src = PLACEHOLDER;
+                      }}
                       className="w-12 h-12 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0"
                     />
                     <div className="flex-1 min-w-0">
@@ -185,18 +190,20 @@ export default function CheckoutPage() {
                       {formatPrice(item.price * item.qty)}
                     </span>
                   </div>
-                  {item.note?.trim() && (
-                    <p className="mt-1.5 ml-15 pl-0 text-xs text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/20 rounded-lg px-3 py-1.5">
-                      📝 {item.note}
-                    </p>
-                  )}
+                  <input
+                    value={item.note || ""}
+                    onChange={(e) => updateNote(item.productId, e.target.value)}
+                    placeholder="📝 Note for this item (optional)…"
+                    className="mt-1.5 w-full text-xs rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-teal-500 text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none transition-colors"
+                    style={{ minWidth: 0 }}
+                  />
                 </div>
               ))}
             </div>
             <Link
               to="/cart"
               className="inline-block mt-3 text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline">
-              Edit items or notes
+              ← Back to cart (change quantities)
             </Link>
           </div>
 
