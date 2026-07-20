@@ -2,7 +2,12 @@
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import { getOrder, toggleOrderDone } from "@/firebase/orders";
 import { getOutlet } from "@/firebase/outlets";
-import { exportOrderClientFormat, printOrderPDF } from "@/utils/exporters";
+import {
+  exportOrderClientFormat,
+  printOrderPDF,
+  printPickingList,
+  shareOrderWhatsApp,
+} from "@/utils/exporters";
 import { formatPrice } from "@/utils/helpers";
 import { formatOrderDate, shortId } from "@/utils/orderHelpers";
 import { useEffect, useState } from "react";
@@ -113,7 +118,17 @@ export default function AdminOrderDetail() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => printPickingList(order, outlet)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 transition-colors">
+            📋 Picking
+          </button>
+          <button
+            onClick={() => shareOrderWhatsApp(order)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 transition-colors">
+            💬 WhatsApp
+          </button>
           <button
             onClick={() => exportOrderClientFormat(order)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 transition-colors">

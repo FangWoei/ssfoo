@@ -38,6 +38,7 @@ const BLANK = {
   uom: "PCS",
   focBuy: "",
   focFree: "",
+  lowStockAt: "",
   category: "",
   basePrice: "",
   salePrice: "",
@@ -289,6 +290,7 @@ export default function AdminProductForm() {
     const uom = form.uom.trim().toUpperCase();
     const focBuy = parseInt(form.focBuy, 10) || 0;
     const focFree = parseInt(form.focFree, 10) || 0;
+    const lowStockAt = parseInt(form.lowStockAt, 10) || 0;
 
     const itemCode = form.itemCode.trim();
     if (!itemCode) return toast.error("Item code is required");
@@ -318,6 +320,7 @@ export default function AdminProductForm() {
       uom,
       focBuy,
       focFree,
+      lowStockAt,
       category: form.category,
       basePrice: price,
       salePrice: isPromo ? salePrice : null,
@@ -534,6 +537,24 @@ export default function AdminProductForm() {
               className={inputCls}
             />
           </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>
+            Low-stock alert level{" "}
+            <span className="normal-case font-normal">
+              (optional — empty uses the global default)
+            </span>
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={form.lowStockAt}
+            onChange={set("lowStockAt")}
+            placeholder="e.g. 24"
+            className={inputCls}
+            style={{ maxWidth: "200px" }}
+          />
         </div>
       </div>
 
@@ -840,3 +861,4 @@ export default function AdminProductForm() {
     </div>
   );
 }
+  

@@ -16,6 +16,7 @@ const HEADERS = [
   "uom",
   "focBuy",
   "focFree",
+  "lowStockAt",
 ];
 
 // ── Generate a downloadable template with an example row ──
@@ -33,6 +34,7 @@ export const downloadProductTemplate = (categories = [], brands = []) => {
     uom: "PCS",
     focBuy: 12,
     focFree: 1,
+    lowStockAt: 12,
   };
 
   const wb = XLSX.utils.book_new();
@@ -91,6 +93,11 @@ export const downloadProductTemplate = (categories = [], brands = []) => {
         "FOC rule: buy this many… (fill both focBuy and focFree, or neither)",
     },
     { Field: "focFree", Required: "No", Notes: "…get this many free" },
+    {
+      Field: "lowStockAt",
+      Required: "No",
+      Notes: "Low-stock alert level for this product (empty = global default)",
+    },
   ];
   const ws2 = XLSX.utils.json_to_sheet(notes);
   ws2["!cols"] = [{ wch: 14 }, { wch: 10 }, { wch: 60 }];
@@ -150,6 +157,7 @@ export const parseProductFile = async (file, categories = [], brands = []) => {
 
     const focBuy = parseInt(raw.focBuy, 10);
     const focFree = parseInt(raw.focFree, 10);
+    const lowStockAt = parseInt(raw.lowStockAt, 10);
 
     valid.push({
       itemCode,
@@ -162,6 +170,7 @@ export const parseProductFile = async (file, categories = [], brands = []) => {
           .toUpperCase() || "PCS",
       focBuy: !isNaN(focBuy) && focBuy > 0 && focFree > 0 ? focBuy : 0,
       focFree: !isNaN(focFree) && focBuy > 0 && focFree > 0 ? focFree : 0,
+      lowStockAt: !isNaN(lowStockAt) && lowStockAt > 0 ? lowStockAt : 0,
       category,
       basePrice: price,
       minOrder: isNaN(minOrder) || minOrder < 1 ? 1 : minOrder,
@@ -174,4 +183,48 @@ export const parseProductFile = async (file, categories = [], brands = []) => {
   });
 
   return { valid, errors, total: rows.length };
+};
+
+// ── Export the full catalogue in the SAME columns as the import
+// template, so admin can edit prices/stock in Excel and re-import
+// (matching rows update existing products by itemCode). ──
+export const exportProductsToExcel = (products = []) => {
+  const rows = products.map((p) => ({
+    itemCode: p.itemCode || "",
+    name: p.name || "",
+    description: p.description || "",
+    category: p.category || "",
+    brand: p.brand || "",
+    basePrice: Number(p.basePrice || 0),
+    minOrder: p.minOrder || 1,
+    stock: p.stock || 0,
+    status: p.status || "draft",
+    uom: p.uom || "",
+    focBuy: p.focBuy || "",
+    focFree: p.focFree || "",
+    lowStockAt: p.lowStockAt || "",
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows, { header: HEADERS });
+  ws["!cols"] = [
+    { wch: 12 },
+    { wch: 36 },
+    { wch: 24 },
+    { wch: 16 },
+    { wch: 14 },
+    { wch: 10 },
+    { wch: 9 },
+    { wch: 8 },
+    { wch: 8 },
+    { wch: 7 },
+    { wch: 8 },
+    { wch: 8 },
+    { wch: 11 },
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "products");
+  XLSX.writeFile(
+    wb,
+    `products_export_${new Date().toISOString().slice(0, 10)}.xlsx`,
+  );
 };

@@ -1,20 +1,33 @@
 // src/pages/user/OrderDetail.jsx
 import LoadingSpinner from "@/components/common/LoadingSpinner";
 import { useAuth } from "@/context/AuthContext";
+import useCartStore from "@/context/cartStore";
 import { getOrder } from "@/firebase/orders";
-import { printOrderPDF } from "@/utils/exporters";
+import { getProduct } from "@/firebase/products";
+import { printOrderPDF, shareOrderWhatsApp } from "@/utils/exporters";
 import { formatPrice } from "@/utils/helpers";
 import { formatOrderDate, shortId } from "@/utils/orderHelpers";
+import { effectivePrice, isOnPromo } from "@/utils/promo";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { FiArrowLeft, FiFileText, FiPackage, FiPrinter } from "react-icons/fi";
-import { Link, useParams } from "react-router-dom";
+import {
+  FiArrowLeft,
+  FiFileText,
+  FiPackage,
+  FiPrinter,
+  FiRepeat,
+  FiShare2,
+} from "react-icons/fi";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 const PLACEHOLDER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' rx='12' fill='%23ccfbf1'/%3E%3Ctext x='48' y='62' font-size='38' text-anchor='middle'%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E";
 
 export default function OrderDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const addItem = useCartStore((st) => st.addItem);
+  const [reordering, setReordering] = useState(false);
   const { user, profile } = useAuth();
   const outletId = profile?.outletId || user?.outletId;
 
@@ -81,11 +94,73 @@ export default function OrderDetail() {
             Placed {formatOrderDate(order.createdAt)}
           </p>
         </div>
-        <button
-          onClick={() => printOrderPDF(order, { forAdmin: false })}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-500 transition-colors shrink-0">
-          <FiPrinter size={15} /> PDF
-        </button>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <button
+            onClick={async () => {
+              setReordering(true);
+              const skipped = [];
+              let added = 0;
+              try {
+                for (const it of order.items || []) {
+                  const prod = await getProduct(it.productId);
+                  if (
+                    !prod ||
+                    prod.status !== "active" ||
+                    (prod.stock || 0) <= 0
+                  ) {
+                    skipped.push(it.name);
+                    continue;
+                  }
+                  const minO = prod.minOrder || 1;
+                  const qty = Math.min(Math.max(it.qty, minO), prod.stock || 0);
+                  addItem({
+                    productId: prod.id,
+                    itemCode: prod.itemCode || "",
+                    name: prod.name,
+                    price: effectivePrice(prod),
+                    basePrice: prod.basePrice,
+                    onPromo: isOnPromo(prod),
+                    qty,
+                    stock: prod.stock || 0,
+                    thumbnail: prod.images?.[0] || "",
+                    minOrder: minO,
+                    uom: prod.uom || "",
+                    focBuy: prod.focBuy || 0,
+                    focFree: prod.focFree || 0,
+                    note: it.note || "",
+                  });
+                  added++;
+                }
+                if (added) {
+                  toast.success(
+                    `${added} item${added > 1 ? "s" : ""} added to cart${
+                      skipped.length ? ` · ${skipped.length} unavailable` : ""
+                    }`,
+                  );
+                  navigate("/cart");
+                } else {
+                  toast.error("These items are no longer available");
+                }
+              } finally {
+                setReordering(false);
+              }
+            }}
+            disabled={reordering}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white transition-colors">
+            <FiRepeat size={15} className={reordering ? "animate-spin" : ""} />
+            Order Again
+          </button>
+          <button
+            onClick={() => shareOrderWhatsApp(order)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-500 transition-colors">
+            <FiShare2 size={15} /> WhatsApp
+          </button>
+          <button
+            onClick={() => printOrderPDF(order, { forAdmin: false })}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-500 transition-colors">
+            <FiPrinter size={15} /> PDF
+          </button>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-[1fr_300px] gap-5 items-start">

@@ -90,7 +90,10 @@ export default function AdminDashboard() {
   // Low-stock products (#2)
   const lowStockProducts = products
     .filter(
-      (p) => p.status === "active" && (p.stock || 0) <= LOW_STOCK_THRESHOLD,
+      (p) =>
+        p.status === "active" &&
+        (p.stock || 0) <=
+          (p.lowStockAt > 0 ? p.lowStockAt : LOW_STOCK_THRESHOLD),
     )
     .sort((a, b) => (a.stock || 0) - (b.stock || 0));
 
@@ -260,8 +263,8 @@ export default function AdminDashboard() {
             </h2>
             <span className="text-xs text-amber-600 dark:text-amber-400">
               {lowStockProducts.length} product
-              {lowStockProducts.length > 1 ? "s" : ""} at or below{" "}
-              {LOW_STOCK_THRESHOLD} units
+              {lowStockProducts.length > 1 ? "s" : ""} at or below their alert
+              level (default {LOW_STOCK_THRESHOLD})
             </span>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">

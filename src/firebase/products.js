@@ -140,3 +140,24 @@ export const bulkAddProducts = async (rows, onProgress) => {
   }
   return rows.length;
 };
+
+// ── Bulk UPDATE by document id (matched via itemCode) ──
+// updates: [{ id, data }]. Only the provided fields change —
+// images / promo settings stay untouched.
+export const bulkUpdateProducts = async (updates, onProgress) => {
+  const CHUNK = 450;
+  let done = 0;
+  for (let i = 0; i < updates.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    updates.slice(i, i + CHUNK).forEach(({ id, data }) => {
+      batch.update(doc(db, COL, id), {
+        ...data,
+        updatedAt: serverTimestamp(),
+      });
+    });
+    await batch.commit();
+    done = Math.min(i + CHUNK, updates.length);
+    onProgress?.(done, updates.length);
+  }
+  return updates.length;
+};

@@ -4,6 +4,7 @@ import RefreshControl from "@/components/common/RefreshControl";
 import {
   bulkAddProducts,
   bulkDeleteProducts,
+  bulkUpdateProducts,
   deleteProduct,
   getAllProducts,
   getBrands,
@@ -15,6 +16,7 @@ import usePersistedState from "@/hooks/usePersistedState";
 import { formatPrice } from "@/utils/helpers";
 import {
   downloadProductTemplate,
+  exportProductsToExcel,
   parseProductFile,
 } from "@/utils/productImport";
 import { isOnPromo } from "@/utils/promo";
@@ -102,7 +104,7 @@ export default function AdminProducts() {
       );
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.name?.toLowerCase().includes(q));
+      list = list.filter((p) => p.itemCode?.toLowerCase().includes(q));
     }
     return list;
   }, [products, statusFilter, catFilter, brandFilter, search]);
@@ -189,7 +191,20 @@ export default function AdminProducts() {
     setImportResult(null);
     try {
       const result = await parseProductFile(file, categories, brands);
-      setImportResult(result);
+      // Match rows to existing products by itemCode → update vs create
+      const byCode = new Map(
+        products
+          .filter((pr) => pr.itemCode)
+          .map((pr) => [String(pr.itemCode).toLowerCase(), pr]),
+      );
+      const creates = [];
+      const updates = [];
+      result.valid.forEach((row) => {
+        const existing = byCode.get(String(row.itemCode).toLowerCase());
+        if (existing) updates.push({ id: existing.id, data: row });
+        else creates.push(row);
+      });
+      setImportResult({ ...result, creates, updates });
       setImportModal(true);
     } catch (err) {
       console.error("Parse failed:", err);
@@ -200,11 +215,14 @@ export default function AdminProducts() {
   };
 
   const confirmImport = async () => {
-    if (!importResult?.valid?.length) return;
+    const creates = importResult?.creates || [];
+    const updates = importResult?.updates || [];
+    if (!creates.length && !updates.length) return;
     setImporting(true);
     try {
-      await bulkAddProducts(importResult.valid);
-      toast.success(`${importResult.valid.length} products imported`);
+      if (creates.length) await bulkAddProducts(creates);
+      if (updates.length) await bulkUpdateProducts(updates);
+      toast.success(`${creates.length} added · ${updates.length} updated`);
       setImportModal(false);
       setImportResult(null);
       setLoading(true);
@@ -237,6 +255,15 @@ export default function AdminProducts() {
             refreshing={refreshing}
             storageKey="ssfoo-refresh-products"
           />
+          <button
+            onClick={() => {
+              if (!products.length) return toast.error("No products yet");
+              exportProductsToExcel(products);
+            }}
+            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 text-sm font-semibold transition-colors"
+            title="Download all products as Excel — edit and re-import to update">
+            <FiDownload size={15} /> Export
+          </button>
           <button
             onClick={() => downloadProductTemplate(categories, brands)}
             className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 text-sm font-semibold transition-colors">
@@ -528,9 +555,15 @@ export default function AdminProducts() {
             <div className="flex gap-3 mb-4">
               <div className="flex-1 bg-primary-50 dark:bg-primary-900/20 rounded-xl p-3 text-center">
                 <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">
-                  {importResult.valid.length}
+                  {importResult.creates?.length || 0}
                 </p>
-                <p className="text-xs text-dark-500">Ready to import</p>
+                <p className="text-xs text-dark-500">New products</p>
+              </div>
+              <div className="flex-1 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-center">
+                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  {importResult.updates?.length || 0}
+                </p>
+                <p className="text-xs text-dark-500">Updates (by item code)</p>
               </div>
               <div className="flex-1 bg-red-50 dark:bg-red-900/20 rounded-xl p-3 text-center">
                 <p className="text-2xl font-bold text-red-500">
@@ -596,7 +629,7 @@ export default function AdminProducts() {
                     <FiLoader size={15} className="animate-spin" /> Importing…
                   </>
                 ) : (
-                  `Import ${importResult.valid.length} products`
+                  `Import ${(importResult.creates?.length || 0) + (importResult.updates?.length || 0)} rows`
                 )}
               </button>
             </div>

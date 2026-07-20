@@ -305,3 +305,97 @@ function escapeHtml(str = "") {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+// ── Share an order via WhatsApp ───────────────────────
+export const shareOrderWhatsApp = (order) => {
+  const lines = [];
+  lines.push(`*SSFOO Order ${shortId(order.id)}*`);
+  if (order.outletName || order.outletId)
+    lines.push(
+      `Outlet: ${order.outletName || ""}${order.outletId ? ` (${order.outletId})` : ""}`,
+    );
+  lines.push(`Date: ${formatOrderDate(order.createdAt)}`);
+  lines.push("");
+  (order.items || []).forEach((i) => {
+    let line = `• ${i.itemCode ? i.itemCode + " — " : ""}${i.name}: ${i.qty}${i.uom ? " " + i.uom : ""}`;
+    if (i.foc > 0) line += ` (+${i.foc} FOC)`;
+    line += ` @ RM${Number(i.price || 0).toFixed(2)}`;
+    lines.push(line);
+    if (i.note) lines.push(`   📝 ${i.note}`);
+  });
+  lines.push("");
+  lines.push(`*Total: RM${Number(order.total || 0).toFixed(2)}*`);
+  if (order.remarks) lines.push(`Remarks: ${order.remarks}`);
+
+  window.open(
+    `https://wa.me/?text=${encodeURIComponent(lines.join("\n"))}`,
+    "_blank",
+  );
+};
+
+// ── Picking list — warehouse-friendly print ───────────
+// Sorted by item code, big rows, tick boxes.
+export const printPickingList = (order, outlet = null) => {
+  const items = [...(order.items || [])].sort((a, b) =>
+    String(a.itemCode || "").localeCompare(String(b.itemCode || "")),
+  );
+
+  const rows = items
+    .map(
+      (i, idx) => `
+    <tr>
+      <td class="c">${idx + 1}</td>
+      <td class="c box">☐</td>
+      <td class="code">${escapeHtml(i.itemCode || "—")}</td>
+      <td>${escapeHtml(i.name)}${i.note ? `<div class="note">📝 ${escapeHtml(i.note)}</div>` : ""}</td>
+      <td class="c qty">${i.qty}${i.uom ? ` <span class="uom">${escapeHtml(i.uom)}</span>` : ""}</td>
+      <td class="c foc">${i.foc > 0 ? "+" + i.foc : ""}</td>
+    </tr>`,
+    )
+    .join("");
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Picking List ${shortId(order.id)}</title>
+  <style>
+    * { box-sizing: border-box; font-family: Arial, sans-serif; }
+    body { margin: 24px; color: #111; }
+    h1 { font-size: 22px; margin: 0 0 2px; }
+    .meta { font-size: 13px; color: #444; margin-bottom: 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;
+         border-bottom: 2px solid #111; padding: 8px 6px; }
+    td { border-bottom: 1px solid #ccc; padding: 12px 6px; font-size: 15px; vertical-align: top; }
+    td.c, th.c { text-align: center; }
+    td.box { font-size: 22px; width: 44px; }
+    td.code { font-family: "Courier New", monospace; font-weight: bold; font-size: 16px; white-space: nowrap; }
+    td.qty { font-size: 18px; font-weight: bold; white-space: nowrap; }
+    .uom { font-size: 12px; font-weight: normal; color: #555; }
+    td.foc { color: #0f766e; font-weight: bold; }
+    .note { font-size: 12px; color: #555; margin-top: 3px; }
+    .footer { margin-top: 28px; display: flex; gap: 40px; font-size: 13px; }
+    .footer span { border-top: 1px solid #111; padding-top: 6px; min-width: 180px; }
+    @media print { body { margin: 10mm; } }
+  </style></head><body>
+    <h1>PICKING LIST — ${shortId(order.id)}</h1>
+    <div class="meta">
+      Outlet: <b>${escapeHtml(order.outletName || "")}</b>${order.outletId ? ` (${escapeHtml(order.outletId)})` : ""}
+      &nbsp;·&nbsp; Placed: ${formatOrderDate(order.createdAt)}
+      ${outlet?.phone ? `&nbsp;·&nbsp; ${escapeHtml(outlet.phone)}` : ""}
+      &nbsp;·&nbsp; ${items.length} lines
+    </div>
+    <table>
+      <thead><tr><th class="c">#</th><th class="c">✓</th><th>Item Code</th><th>Product</th><th class="c">Qty</th><th class="c">FOC</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="footer">
+      <span>Picked by</span>
+      <span>Checked by</span>
+      <span>Date</span>
+    </div>
+    <script>window.onload = () => { window.print(); };</script>
+  </body></html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) return;
+  w.document.write(html);
+  w.document.close();
+};
