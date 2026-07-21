@@ -22,6 +22,7 @@ import {
 } from "@/utils/productImport";
 import { isOnPromo } from "@/utils/promo";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
   FiDownload,
@@ -60,6 +61,7 @@ export default function AdminProducts() {
   const [importing, setImporting] = useState(false);
   const fileRef = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [previewImg, setPreviewImg] = useState(null);
 
   const load = async () => {
     try {
@@ -454,6 +456,13 @@ export default function AdminProducts() {
                       className="accent-primary-600 shrink-0"
                     />
                     <img
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (p.images?.[0]) setPreviewImg(p.images[0]);
+                      }}
+                      style={p.images?.[0] ? { cursor: "zoom-in" } : undefined}
+                      title={p.images?.[0] ? "Click to enlarge" : ""}
                       src={p.images?.[0] || PLACEHOLDER}
                       alt={p.name}
                       className="w-11 h-11 rounded-lg object-contain bg-white border border-dark-100 dark:border-dark-700 shrink-0"
@@ -672,6 +681,31 @@ export default function AdminProducts() {
           </div>
         </div>
       )}
+
+      {/* ── Image lightbox ── */}
+      {previewImg &&
+        createPortal(
+          <div
+            onClick={() => setPreviewImg(null)}
+            className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+            <img
+              src={previewImg}
+              alt="Preview"
+              className="rounded-2xl bg-white shadow-2xl"
+              style={{
+                maxWidth: "92vw",
+                maxHeight: "90vh",
+                objectFit: "contain",
+              }}
+            />
+            <button
+              onClick={() => setPreviewImg(null)}
+              className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/15 hover:bg-white/30 text-white flex items-center justify-center transition-colors">
+              <FiX size={22} />
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
