@@ -9,8 +9,10 @@ import {
   markReadByUser,
   sendMessage,
 } from "@/firebase/chat";
+import { getAllProducts } from "@/firebase/products";
+import { effectivePrice } from "@/utils/promo";
 import { useEffect, useRef, useState } from "react";
-import { FiMessageCircle, FiSend, FiX } from "react-icons/fi";
+import { FiMessageCircle, FiPackage, FiSend, FiX } from "react-icons/fi";
 
 const fmtTime = (ts) => {
   const d = ts?.toDate?.();
@@ -26,9 +28,44 @@ export default function ChatWidget() {
   const [unread, setUnread] = useState(false);
   const [sending, setSending] = useState(false);
   const [attached, setAttached] = useState(null); // product | null
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [prods, setProds] = useState(null); // null = not loaded yet
+  const [loadingProds, setLoadingProds] = useState(false);
   const bottomRef = useRef(null);
 
   const uid = user?.uid;
+
+  const openPicker = async () => {
+    setPickerOpen(true);
+    if (prods === null && !loadingProds) {
+      setLoadingProds(true);
+      try {
+        const all = await getAllProducts();
+        setProds(all.filter((p) => p.status === "active"));
+      } catch {
+        setProds([]);
+      } finally {
+        setLoadingProds(false);
+      }
+    }
+  };
+
+  // Respect this outlet's brand visibility (same rule as the shop)
+  const allowed = profile?.allowedBrands;
+  const restricted = Array.isArray(allowed) && allowed.length > 0;
+  const visibleProds = (prods || []).filter(
+    (p) => !restricted || !p.brand || allowed.includes(p.brand),
+  );
+  const q = pickerSearch.toLowerCase();
+  const pickerList = visibleProds
+    .filter(
+      (p) =>
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        p.itemCode?.toLowerCase().includes(q),
+    )
+    .slice(0, 40);
 
   // "Ask admin about this product" from the shop
   useEffect(() => {
@@ -226,6 +263,12 @@ export default function ChatWidget() {
 
           {/* Input */}
           <div className="p-2.5 border-t border-dark-100 dark:border-dark-800 flex items-center gap-2 shrink-0">
+            <button
+              onClick={openPicker}
+              title="Send a product"
+              className="w-10 h-10 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-500 dark:text-dark-400 hover:border-primary-500 hover:text-primary-600 flex items-center justify-center shrink-0 transition-colors">
+              <FiPackage size={16} />
+            </button>
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -246,6 +289,83 @@ export default function ChatWidget() {
               <FiSend size={16} />
             </button>
           </div>
+
+          {/* ── Product picker overlay ── */}
+          {pickerOpen && (
+            <div className="absolute inset-0 z-10 bg-white dark:bg-dark-900 flex flex-col">
+              <div className="px-3 py-2.5 bg-primary-600 text-white flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setPickerOpen(false)}
+                  className="p-1 rounded-md hover:bg-white/15">
+                  <FiX size={16} />
+                </button>
+                <p className="font-bold text-sm">Send a product</p>
+              </div>
+              <div className="p-2.5 shrink-0">
+                <input
+                  value={pickerSearch}
+                  onChange={(e) => setPickerSearch(e.target.value)}
+                  placeholder="Search name or item code…"
+                  autoFocus
+                  className="w-full px-3 py-2.5 text-sm rounded-xl bg-dark-50 dark:bg-dark-800 border border-transparent focus:border-primary-500 text-dark-900 dark:text-dark-100 outline-none transition-colors"
+                />
+              </div>
+              <div className="flex-1 overflow-y-auto px-2 pb-2">
+                {loadingProds ? (
+                  <p className="text-xs text-dark-400 text-center py-6">
+                    Loading products…
+                  </p>
+                ) : pickerList.length === 0 ? (
+                  <p className="text-xs text-dark-400 text-center py-6">
+                    No products found
+                  </p>
+                ) : (
+                  pickerList.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setAttached({
+                          id: p.id,
+                          itemCode: p.itemCode || "",
+                          name: p.name,
+                          image: p.images?.[0] || "",
+                          price: effectivePrice(p),
+                        });
+                        setPickerOpen(false);
+                        setPickerSearch("");
+                      }}
+                      className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-primary-50 dark:hover:bg-primary-900/20 text-left transition-colors">
+                      {p.images?.[0] ? (
+                        <img
+                          src={p.images[0]}
+                          alt=""
+                          className="w-10 h-10 rounded-lg bg-white border border-dark-100 dark:border-dark-700 shrink-0"
+                          style={{ objectFit: "contain" }}
+                        />
+                      ) : (
+                        <span className="w-10 h-10 rounded-lg bg-dark-100 dark:bg-dark-800 flex items-center justify-center shrink-0">
+                          📦
+                        </span>
+                      )}
+                      <span style={{ minWidth: 0, flex: 1 }}>
+                        {p.itemCode && (
+                          <span className="block text-[10px] font-mono font-bold text-primary-600 dark:text-primary-400 truncate">
+                            {p.itemCode}
+                          </span>
+                        )}
+                        <span className="block text-xs font-medium text-dark-800 dark:text-dark-200 truncate">
+                          {p.name}
+                        </span>
+                      </span>
+                      <span className="text-xs font-bold text-primary-600 dark:text-primary-400 shrink-0">
+                        RM {effectivePrice(p).toFixed(2)}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>

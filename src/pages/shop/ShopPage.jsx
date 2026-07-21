@@ -1,8 +1,15 @@
 // src/pages/shop/ShopPage.jsx
+import Pagination, { DEFAULT_PAGE_SIZE } from "@/components/common/Pagination";
 import RefreshControl from "@/components/common/RefreshControl";
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
-import { getAllProducts, getCategories } from "@/firebase/products";
+import {
+  getAllProducts,
+  getCategories,
+  isSubscribedRestock,
+  subscribeRestock,
+  unsubscribeRestock,
+} from "@/firebase/products";
 import usePersistedState from "@/hooks/usePersistedState";
 import { formatPrice, truncate } from "@/utils/helpers";
 import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
@@ -10,6 +17,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
+  FiBell,
   FiInfo,
   FiMinus,
   FiPackage,
@@ -52,6 +60,30 @@ export default function ShopPage() {
   const [category, setCategory] = usePersistedState("shop-cat", "all");
   const [sortBy, setSortBy] = usePersistedState("shop-sort", "createdAt_desc");
   const [brandFilter, setBrandFilter] = usePersistedState("shop-brand", "all");
+
+  // ── Notification deep-link: /shop?highlight=BW-080 ──
+  // The notifications bell navigates here after a restock ping;
+  // we prefill the search so the product jumps out. Read once on
+  // mount from window.location so we always beat any race with
+  // usePersistedState hydration.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const h = url.searchParams.get("highlight");
+    if (!h) return;
+    setSearch(h);
+    setCategory("all");
+    setBrandFilter("all");
+    setPage(1);
+    // Clean the URL (no reload, no re-trigger)
+    url.searchParams.delete("highlight");
+    window.history.replaceState({}, "", url.pathname + url.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [pageSize, setPageSize] = usePersistedState(
+    "shop-size",
+    DEFAULT_PAGE_SIZE,
+  );
+  const [page, setPage] = useState(1);
   const [modal, setModal] = useState(null); // product | null
   const [refreshing, setRefreshing] = useState(false);
 
@@ -119,6 +151,18 @@ export default function ShopPage() {
       if (sortBy === "name_asc") return a.name.localeCompare(b.name);
       return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
     });
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, category, brandFilter, sortBy, pageSize, visibleBrands.length]);
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const getCartItem = (productId) =>
     cartItems.find((i) => i.productId === productId);
@@ -312,6 +356,18 @@ export default function ShopPage() {
         </div>
       )}
 
+      {/* Pagination */}
+      <Pagination
+        total={totalFiltered}
+        page={currentPage}
+        pageSize={pageSize}
+        onPageChange={(p) => {
+          setPage(p);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onPageSizeChange={setPageSize}
+      />
+
       {/* Products */}
       {/* ── Promotions row (#5) ── */}
       {!loading && showPromoRow && (
@@ -372,7 +428,7 @@ export default function ShopPage() {
         </div>
       ) : (
         <div style={gridStyle}>
-          {filtered.map((p) => (
+          {paged.map((p) => (
             <ProductCard
               key={p.id}
               product={p}
@@ -383,6 +439,18 @@ export default function ShopPage() {
           ))}
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        total={totalFiltered}
+        page={currentPage}
+        pageSize={pageSize}
+        onPageChange={(p) => {
+          setPage(p);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onPageSizeChange={setPageSize}
+      />
 
       {/* Info Modal */}
       {modal && (
@@ -399,8 +467,43 @@ export default function ShopPage() {
 
 // ── Grid Card ─────────────────────────────────────────
 function ProductCard({ product, cartItem, onAdd, onInfo }) {
+  const { user, isOutlet } = useAuth();
   const min = product.minOrder || 1;
   const inStock = (product.stock || 0) > 0;
+  const [subbed, setSubbed] = useState(false);
+  const [subLoading, setSubLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOutlet || inStock || !user?.uid) return;
+    let alive = true;
+    isSubscribedRestock(product.id, user.uid).then((v) => {
+      if (alive) setSubbed(v);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [product.id, isOutlet, inStock, user?.uid]);
+
+  const toggleSub = async (e) => {
+    e.stopPropagation();
+    if (!user?.uid || subLoading) return;
+    setSubLoading(true);
+    try {
+      if (subbed) {
+        await unsubscribeRestock(product.id, user.uid);
+        setSubbed(false);
+        toast.success("You won't be notified");
+      } else {
+        await subscribeRestock(product.id, user.uid);
+        setSubbed(true);
+        toast.success("We'll notify you when it's back in stock");
+      }
+    } catch {
+      toast.error("Couldn't update — try again");
+    } finally {
+      setSubLoading(false);
+    }
+  };
   const [qty, setQty] = useState(min);
 
   return (
@@ -448,10 +551,28 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
         )}
         {/* Out of stock overlay */}
         {!inStock && (
-          <div className="absolute inset-0 bg-dark-900/50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-dark-900/50 flex flex-col items-center justify-center gap-2">
             <span className="text-white text-xs font-semibold bg-red-500 px-3 py-1 rounded-full">
               Out of Stock
             </span>
+            {isOutlet && (
+              <button
+                onClick={toggleSub}
+                disabled={subLoading}
+                title={
+                  subbed
+                    ? "You'll be notified when it's back"
+                    : "Remind me when back in stock"
+                }
+                className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full transition-all disabled:opacity-70 ${
+                  subbed
+                    ? "bg-primary-600 text-white"
+                    : "bg-white/95 text-primary-700 hover:bg-white"
+                }`}>
+                <FiBell size={11} />
+                {subbed ? "Reminding you" : "Remind me"}
+              </button>
+            )}
           </div>
         )}
       </div>

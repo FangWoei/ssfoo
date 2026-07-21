@@ -1,5 +1,6 @@
 // src/pages/admin/AdminOrders.jsx
 import LoadingSpinner from "@/components/common/LoadingSpinner";
+import Pagination, { DEFAULT_PAGE_SIZE } from "@/components/common/Pagination";
 import RefreshControl from "@/components/common/RefreshControl";
 import { getAllOrders, toggleOrderDone } from "@/firebase/orders";
 import usePersistedState from "@/hooks/usePersistedState";
@@ -38,6 +39,11 @@ export default function AdminOrders() {
   const [tab, setTab] = usePersistedState("ao-tab", "new");
   const [search, setSearch] = usePersistedState("ao-search", "");
   const [timeRange, setTimeRange] = usePersistedState("ao-time", "all");
+  const [pageSize, setPageSize] = usePersistedState(
+    "ao-size",
+    DEFAULT_PAGE_SIZE,
+  );
+  const [page, setPage] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchOrders = async () => {
@@ -103,6 +109,18 @@ export default function AdminOrders() {
     }
     return list;
   }, [orders, tab, search, timeRange]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab, search, timeRange, pageSize]);
+
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   const handleToggle = async (order) => {
     const next = !order.done;
@@ -214,6 +232,17 @@ export default function AdminOrders() {
 
       {/* ── Order list ── */}
       <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 overflow-hidden">
+        <Pagination
+          total={totalFiltered}
+          page={currentPage}
+          pageSize={pageSize}
+          onPageChange={(p) => {
+            setPage(p);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          onPageSizeChange={setPageSize}
+        />
+
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-center">
             <FiInbox size={28} className="text-dark-300 mb-3" />
@@ -223,7 +252,7 @@ export default function AdminOrders() {
           </div>
         ) : (
           <div className="divide-y divide-dark-100 dark:divide-dark-800">
-            {filtered.map((o) => {
+            {paged.map((o) => {
               const isNew = o.done === false;
               return (
                 <div

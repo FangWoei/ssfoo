@@ -1,7 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -13,7 +12,6 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // ── Users (outlet + admin profiles) ─────────────────
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) || isAdmin();
@@ -21,7 +19,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ── Products ────────────────────────────────────────
     match /products/{productId} {
       allow read: if true;
       allow create, delete: if isAdmin();
@@ -29,27 +26,30 @@ service cloud.firestore {
         (isSignedIn() &&
          request.resource.data.diff(resource.data).affectedKeys()
            .hasOnly(['stock', 'inStock', 'status']));
+
+      // Restock subscribers (subcollection under each product)
+      match /subscribers/{userId} {
+        allow read: if isOwner(userId) || isAdmin();
+        allow create, update: if isOwner(userId);
+        allow delete: if isOwner(userId) || isAdmin();
+      }
     }
 
-    // ── Categories ──────────────────────────────────────
     match /categories/{categoryId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // ── UOMs ────────────────────────────────────────────
-    match /uoms/{uomId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // ── Brands (per-outlet visibility) ──────────────────
     match /brands/{brandId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // ── Orders ──────────────────────────────────────────
+    match /uoms/{uomId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /orders/{orderId} {
       allow read: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isAdmin());
@@ -59,19 +59,21 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // ── Carts ───────────────────────────────────────────
     match /carts/{userId} {
       allow read, write: if isOwner(userId);
     }
 
-    // ── Chats (outlet ↔ admin) ──────────────────────────
     match /chats/{outletUid} {
       allow read, write: if isOwner(outletUid) || isAdmin();
-
       match /messages/{msgId} {
         allow read, create: if isOwner(outletUid) || isAdmin();
-        allow update, delete: if isAdmin();
       }
+    }
+
+    match /notifications/{notifId} {
+      allow read, update, delete: if isSignedIn() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if isAdmin();
     }
   }
 }

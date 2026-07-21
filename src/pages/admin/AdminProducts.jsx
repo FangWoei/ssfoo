@@ -1,5 +1,6 @@
 // src/pages/admin/AdminProducts.jsx
 import LoadingSpinner from "@/components/common/LoadingSpinner";
+import Pagination, { DEFAULT_PAGE_SIZE } from "@/components/common/Pagination";
 import RefreshControl from "@/components/common/RefreshControl";
 import {
   bulkAddProducts,
@@ -48,6 +49,11 @@ export default function AdminProducts() {
   const [catFilter, setCatFilter] = usePersistedState("ap-cat", "all");
   const [brandFilter, setBrandFilter] = usePersistedState("ap-brand", "all");
   const [statusFilter, setStatusFilter] = usePersistedState("ap-status", "all");
+  const [pageSize, setPageSize] = usePersistedState(
+    "ap-size",
+    DEFAULT_PAGE_SIZE,
+  );
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState([]);
   const [importModal, setImportModal] = useState(false);
   const [importResult, setImportResult] = useState(null);
@@ -109,6 +115,20 @@ export default function AdminProducts() {
     return list;
   }, [products, statusFilter, catFilter, brandFilter, search]);
 
+  // Any filter or size change resets to page 1
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, catFilter, brandFilter, search, pageSize]);
+
+  // Slice the visible page
+  const totalFiltered = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
   const toggleStatus = async (product) => {
     const next = product.status === "active" ? "draft" : "active";
     try {
@@ -158,10 +178,14 @@ export default function AdminProducts() {
     );
 
   const allSelected =
-    filtered.length > 0 && filtered.every((p) => selected.includes(p.id));
+    paged.length > 0 && paged.every((p) => selected.includes(p.id));
 
   const toggleSelectAll = () =>
-    setSelected(allSelected ? [] : filtered.map((p) => p.id));
+    setSelected(
+      allSelected
+        ? selected.filter((id) => !paged.some((p) => p.id === id))
+        : [...new Set([...selected, ...paged.map((p) => p.id)])],
+    );
 
   const handleTogglePromo = async (product) => {
     const next = !product.isPromo;
@@ -380,6 +404,18 @@ export default function AdminProducts() {
       )}
 
       {/* ── Product list ── */}
+      {/* Pagination (top) */}
+      <Pagination
+        total={totalFiltered}
+        page={currentPage}
+        pageSize={pageSize}
+        onPageChange={(p) => {
+          setPage(p);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        onPageSizeChange={setPageSize}
+      />
+
       <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 overflow-hidden">
         {filtered.length === 0 ? (
           <p className="text-sm text-dark-400 text-center py-14">
@@ -396,7 +432,7 @@ export default function AdminProducts() {
                 className="accent-primary-600"
               />
               <span className="text-xs font-semibold text-dark-500 dark:text-dark-400">
-                Select all ({filtered.length})
+                Select all on page ({paged.length})
               </span>
               {selected.length > 0 && !allSelected && (
                 <span className="text-xs text-dark-400">
@@ -405,7 +441,7 @@ export default function AdminProducts() {
               )}
             </label>
             <div className="divide-y divide-dark-100 dark:divide-dark-800">
-              {filtered.map((p) => {
+              {paged.map((p) => {
                 const active = p.status === "active";
                 return (
                   <div

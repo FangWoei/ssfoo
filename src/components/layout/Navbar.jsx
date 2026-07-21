@@ -1,4 +1,5 @@
 // src/components/layout/Navbar.jsx
+import NotificationsBell from "@/components/layout/NotificationsBell";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import useCartStore from "@/context/cartStore";
@@ -80,6 +81,9 @@ export default function Navbar() {
               className="btn-ghost p-2 rounded-lg text-dark-500 dark:text-dark-400">
               {theme === "dark" ? <FiSun size={18} /> : <FiMoon size={18} />}
             </button>
+
+            {/* Notifications */}
+            <NotificationsBell />
 
             {/* Cart */}
             <Link

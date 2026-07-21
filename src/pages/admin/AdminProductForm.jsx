@@ -8,6 +8,7 @@ import {
   getCategories,
   getProduct,
   getUoms,
+  notifyRestockedProduct,
   updateProduct,
 } from "@/firebase/products";
 import { uploadImages } from "@/firebase/storage";
@@ -65,6 +66,7 @@ export default function AdminProductForm() {
   const [dragOver, setDragOver] = useState(false);
   const [imgUrl, setImgUrl] = useState("");
   const [uoms, setUoms] = useState([]);
+  const [prevStock, setPrevStock] = useState(0);
   const [brands, setBrands] = useState([]);
   const [uomModal, setUomModal] = useState(false);
   const [newUom, setNewUom] = useState("");
@@ -88,6 +90,8 @@ export default function AdminProductForm() {
             navigate("/admin/products");
             return;
           }
+          // Remember the previous stock so we can detect a 0→n restock
+          setPrevStock(p.stock || 0);
           setForm({
             ...BLANK,
             ...p,
@@ -337,6 +341,19 @@ export default function AdminProductForm() {
       if (isEdit) {
         await updateProduct(id, data);
         toast.success("Product updated");
+        // Restock notification: only if this admin bumped stock from 0
+        if (prevStock === 0 && (data.stock || 0) > 0) {
+          try {
+            const count = await notifyRestockedProduct({ id, ...data });
+            if (count > 0) {
+              toast.success(
+                `🔔 ${count} outlet${count > 1 ? "s" : ""} notified`,
+              );
+            }
+          } catch (e) {
+            console.error("Restock notify failed:", e);
+          }
+        }
       } else {
         await addProduct(data);
         toast.success("Product created");
@@ -861,4 +878,3 @@ export default function AdminProductForm() {
     </div>
   );
 }
-  
