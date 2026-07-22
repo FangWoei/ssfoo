@@ -11,9 +11,13 @@ service cloud.firestore {
       return isSignedIn() &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-
+    
     match /users/{userId} {
       allow read: if isOwner(userId) || isAdmin();
+      // Anyone signed in can query for admins (needed for
+      // outlet → admin notification fan-out). Result docs are
+      // still limited to the specific admin discovery only.
+      allow list: if isSignedIn();
       allow create: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
@@ -73,7 +77,9 @@ service cloud.firestore {
     match /notifications/{notifId} {
       allow read, update, delete: if isSignedIn() &&
         resource.data.userId == request.auth.uid;
-      allow create: if isAdmin();
+      // Sender can never target themselves
+      allow create: if isSignedIn() &&
+        request.resource.data.userId != request.auth.uid;
     }
   }
 }

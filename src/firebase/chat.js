@@ -6,12 +6,15 @@ import {
   addDoc,
   collection,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "./config";
 
@@ -55,31 +58,17 @@ export const sendMessage = async (
     senderRole: "outlet",
     createdAt: serverTimestamp(),
   });
+
+  // Fan out to all admins
+  notifyAdminsChat(outletUid, outletName, outletId, lastMessage);
 };
 
-// ── Admin replies to an outlet (text and/or product) ──
-export const sendAdminReply = async (
-  outletUid,
-  { text = "", product = null } = {},
-) => {
-  const cleanProduct = product
-    ? {
-        id: product.id || "",
-        itemCode: product.itemCode || "",
-        name: product.name || "",
-        image: product.image || "",
-        price: product.price || 0,
-      }
-    : null;
-
-  const lastMessage = cleanProduct
-    ? `📦 ${cleanProduct.itemCode || cleanProduct.name}${text ? ` — ${text}` : ""}`
-    : text;
-
+// ── Admin replies to an outlet ────────────────────────
+export const sendAdminReply = async (outletUid, text) => {
   await setDoc(
     doc(db, "chats", outletUid),
     {
-      lastMessage,
+      lastMessage: text,
       lastMessageAt: serverTimestamp(),
       unreadByUser: true,
       unreadByAdmin: false,
@@ -89,7 +78,6 @@ export const sendAdminReply = async (
 
   await addDoc(collection(db, "chats", outletUid, "messages"), {
     text,
-    product: cleanProduct,
     senderRole: "admin",
     createdAt: serverTimestamp(),
   });
@@ -131,3 +119,46 @@ export const markReadByUser = async (outletUid) => {
     /* thread may not exist yet */
   }
 };
+
+// ── Notify admins of a new outlet message ─────────────
+async function notifyAdminsChat(outletUid, outletName, outletId, preview) {
+  try {
+    const usersSnap = await getDocs(
+      query(collection(db, "users"), where("role", "==", "admin")),
+    );
+    if (usersSnap.empty) return;
+    const batch = writeBatch(db);
+    usersSnap.docs.forEach((u) => {
+      const ref = doc(collection(db, "notifications"));
+      batch.set(ref, {
+        userId: u.id,
+        type: "chat_message",
+        outletUid,
+        outletName: outletName || "",
+        outletId: outletId || "",
+        preview: (preview || "").slice(0, 120),
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+    });
+    await batch.commit();
+  } catch (e) {
+    console.error("Chat notify (admin) failed:", e);
+  }
+}
+
+// ── Notify outlet when admin replies ──────────────────
+async function notifyOutletChat(outletUid, preview) {
+  try {
+    await addDoc(collection(db, "notifications"), {
+      userId: outletUid,
+      type: "chat_reply",
+      outletUid,
+      preview: (preview || "").slice(0, 120),
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("Chat notify (outlet) failed:", e);
+  }
+}

@@ -31,9 +31,9 @@ export default function NotificationsBell() {
   const ref = useRef(null);
 
   useEffect(() => {
-    if (!user?.uid || !isOutlet) return;
+    if (!user?.uid) return;
     return listenMyNotifications(user.uid, setItems);
-  }, [user?.uid, isOutlet]);
+  }, [user?.uid]);
 
   useEffect(() => {
     const onClick = (e) => {
@@ -43,7 +43,7 @@ export default function NotificationsBell() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  if (!user?.uid || !isOutlet) return null;
+  if (!user?.uid) return null;
 
   const unread = items.filter((n) => !n.read).length;
 
@@ -51,9 +51,15 @@ export default function NotificationsBell() {
     setOpen(false);
     markNotificationRead(n.id); // fire-and-forget
     if (n.type === "restock") {
-      // Search prefill lets ShopPage's persisted search land on the item
       const q = n.itemCode || n.productName || "";
       navigate(`/shop?highlight=${encodeURIComponent(q)}`);
+    } else if (n.type === "new_order") {
+      navigate(`/admin/orders/${n.orderId}`);
+    } else if (n.type === "chat_message") {
+      navigate("/admin/chats");
+    } else if (n.type === "chat_reply") {
+      // Outlet: just go to shop where the chat widget lives
+      navigate("/shop");
     }
   };
 
@@ -118,22 +124,62 @@ export default function NotificationsBell() {
                     />
                   ) : (
                     <span className="w-11 h-11 rounded-lg bg-primary-50 dark:bg-primary-900/30 text-primary-600 flex items-center justify-center shrink-0">
-                      <FiPackage size={18} />
+                      {n.type === "new_order" ? (
+                        "🛒"
+                      ) : n.type === "chat_message" ||
+                        n.type === "chat_reply" ? (
+                        "💬"
+                      ) : (
+                        <FiPackage size={18} />
+                      )}
                     </span>
                   )}
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <p className="text-sm font-semibold text-dark-900 dark:text-dark-100">
-                      🎉 Back in stock
+                      {n.type === "new_order"
+                        ? "🛒 New order received"
+                        : n.type === "chat_message"
+                          ? "💬 New message"
+                          : n.type === "chat_reply"
+                            ? "💬 New reply from admin"
+                            : "🎉 Back in stock"}
                     </p>
                     <p
                       className="text-xs text-dark-600 dark:text-dark-300 truncate"
                       style={{ minWidth: 0 }}>
-                      {n.itemCode && (
-                        <span className="font-mono font-bold text-primary-600 dark:text-primary-400 mr-1">
-                          {n.itemCode}
-                        </span>
+                      {n.type === "new_order" ? (
+                        <>
+                          <span className="font-semibold">
+                            {n.outletName || n.outletId}
+                          </span>
+                          {" · "}
+                          {n.itemCount || 0} item
+                          {(n.itemCount || 0) !== 1 ? "s" : ""}
+                          {" · "}
+                          <span className="font-bold text-primary-600 dark:text-primary-400">
+                            RM {Number(n.total || 0).toFixed(2)}
+                          </span>
+                        </>
+                      ) : n.type === "chat_message" ? (
+                        <>
+                          <span className="font-semibold">
+                            {n.outletName || n.outletId}
+                          </span>
+                          {": "}
+                          {n.preview}
+                        </>
+                      ) : n.type === "chat_reply" ? (
+                        <>{n.preview}</>
+                      ) : (
+                        <>
+                          {n.itemCode && (
+                            <span className="font-mono font-bold text-primary-600 dark:text-primary-400 mr-1">
+                              {n.itemCode}
+                            </span>
+                          )}
+                          {n.productName}
+                        </>
                       )}
-                      {n.productName}
                     </p>
                     <p className="text-[10px] text-dark-400 mt-0.5">
                       {fmtWhen(n.createdAt)}
@@ -151,3 +197,4 @@ export default function NotificationsBell() {
     </div>
   );
 }
+  

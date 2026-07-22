@@ -38,6 +38,18 @@ export const markNotificationRead = async (id) => {
   }
 };
 
+export const listenMyUnreadCount = (userId, callback) => {
+  if (!userId) return () => {};
+  return onSnapshot(
+    query(
+      collection(db, COL),
+      where("userId", "==", userId),
+      where("read", "==", false),
+    ),
+    (snap) => callback(snap.size),
+  );
+};
+
 export const markAllRead = async (userId, notifs) => {
   const unread = notifs.filter((n) => !n.read);
   if (!unread.length) return;

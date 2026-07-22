@@ -254,7 +254,7 @@ export const exportOrderClientFormat = (order) => {
     i.name || "",
     i.qty || 0,
     i.foc > 0 ? i.foc : "",
-    i.uom || "",
+    (i.uom || "").toLowerCase(),
     Number(i.price || 0),
     "",
     "",
@@ -317,7 +317,7 @@ export const shareOrderWhatsApp = (order) => {
   lines.push(`Date: ${formatOrderDate(order.createdAt)}`);
   lines.push("");
   (order.items || []).forEach((i) => {
-    let line = `• ${i.itemCode ? i.itemCode + " — " : ""}${i.name}: ${i.qty}${i.uom ? " " + i.uom : ""}`;
+    let line = `• ${i.itemCode ? i.itemCode + " — " : ""}${i.name}: ${i.qty}${i.uom ? " " + i.uom.toLowerCase() : ""}`;
     if (i.foc > 0) line += ` (+${i.foc} FOC)`;
     line += ` @ RM${Number(i.price || 0).toFixed(2)}`;
     lines.push(line);
@@ -348,7 +348,7 @@ export const printPickingList = (order, outlet = null) => {
       <td class="c box">☐</td>
       <td class="code">${escapeHtml(i.itemCode || "—")}</td>
       <td>${escapeHtml(i.name)}${i.note ? `<div class="note">📝 ${escapeHtml(i.note)}</div>` : ""}</td>
-      <td class="c qty">${i.qty}${i.uom ? ` <span class="uom">${escapeHtml(i.uom)}</span>` : ""}</td>
+      <td class="c qty">${i.qty}${i.uom ? ` <span class="uom">${escapeHtml(i.uom.toLowerCase())}</span>` : ""}</td>
       <td class="c foc">${i.foc > 0 ? "+" + i.foc : ""}</td>
     </tr>`,
     )

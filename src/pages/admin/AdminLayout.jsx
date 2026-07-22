@@ -1,9 +1,11 @@
 // src/pages/admin/AdminLayout.jsx
 import logo from "@/assets/logo.jpg";
+import NotificationsBell from "@/components/layout/NotificationsBell";
 import { useAuth } from "@/context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
 import { logoutUser } from "@/firebase/auth";
-import { useState } from "react";
+import { listenAllChats } from "@/firebase/chat";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   FiBox,
@@ -30,6 +32,16 @@ const NAV = [
 ];
 
 export default function AdminLayout() {
+  const { isAdmin } = useAuth();
+  const [chatUnread, setChatUnread] = useState(0);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    return listenAllChats((all) =>
+      setChatUnread(all.filter((c) => c.unreadByAdmin).length),
+    );
+  }, [isAdmin]);
+
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -68,7 +80,12 @@ export default function AdminLayout() {
               }`
             }>
             <Icon size={18} />
-            {label}
+            <span style={{ flex: 1 }}>{label}</span>
+            {label === "Chats" && chatUnread > 0 && (
+              <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {chatUnread > 99 ? "99+" : chatUnread}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -136,6 +153,9 @@ export default function AdminLayout() {
           <span className="font-display font-bold text-dark-900 dark:text-white">
             Ssfoo Admin
           </span>
+          <div className="ml-auto">
+            <NotificationsBell />
+          </div>
         </div>
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 bg-dark-50 dark:bg-dark-950">
           <Outlet />
