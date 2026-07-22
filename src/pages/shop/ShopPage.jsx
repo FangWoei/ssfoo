@@ -607,7 +607,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
           )}
           {min > 1 && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
-              Min: {min} units
+              Min: {min} {product.uom || "units"}
             </p>
           )}
           {product.focBuy > 0 && product.focFree > 0 && (
@@ -798,7 +798,7 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
               </span>
               {min > 1 && (
                 <span className="text-xs font-medium text-dark-500 dark:text-dark-400 bg-dark-100 dark:bg-dark-800 px-2.5 py-1 rounded-full">
-                  Min order: {min}
+                  Min order: {min} {product.uom || "units"}
                 </span>
               )}
               {product.focBuy > 0 && product.focFree > 0 && (
