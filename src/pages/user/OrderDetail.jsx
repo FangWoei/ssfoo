@@ -103,16 +103,12 @@ export default function OrderDetail() {
               try {
                 for (const it of order.items || []) {
                   const prod = await getProduct(it.productId);
-                  if (
-                    !prod ||
-                    prod.status !== "active" ||
-                    (prod.stock || 0) <= 0
-                  ) {
+                  if (!prod || prod.status !== "active") {
                     skipped.push(it.name);
                     continue;
                   }
                   const minO = prod.minOrder || 1;
-                  const qty = Math.min(Math.max(it.qty, minO), prod.stock || 0);
+                  const qty = Math.max(it.qty, minO);
                   addItem({
                     productId: prod.id,
                     itemCode: prod.itemCode || "",
@@ -121,7 +117,6 @@ export default function OrderDetail() {
                     basePrice: prod.basePrice,
                     onPromo: isOnPromo(prod),
                     qty,
-                    stock: prod.stock || 0,
                     thumbnail: prod.images?.[0] || "",
                     minOrder: minO,
                     uom: prod.uom || "",

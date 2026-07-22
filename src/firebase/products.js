@@ -2,7 +2,6 @@
 import {
   addDoc,
   collection,
-  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
@@ -11,7 +10,6 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
   startAfter,
   updateDoc,
   where,
@@ -117,67 +115,6 @@ export const addUom = async (name) => {
 
 export const deleteUom = async (id) => {
   return deleteDoc(doc(db, "uoms", id));
-};
-
-// ── Restock subscribers ────────────────────────────────
-// When an outlet taps 🔔 on an out-of-stock product, we set
-// products/{id}/subscribers/{userId}. When admin restocks (0 → n),
-// we notify each subscriber and clear the subscribers.
-export const subscribeRestock = async (productId, userId) => {
-  await setDoc(
-    doc(db, COL, productId, "subscribers", userId),
-    { createdAt: serverTimestamp() },
-    { merge: true },
-  );
-};
-
-export const unsubscribeRestock = async (productId, userId) => {
-  await deleteDoc(doc(db, COL, productId, "subscribers", userId));
-};
-
-export const getMyRestockSubs = async (userId) => {
-  // Uses collectionGroup so we don't need to know which products
-  const q = query(
-    collectionGroup(db, "subscribers"),
-    where("__name__", ">=", ""), // no filter — filter client-side
-  );
-  const snap = await getDocs(q);
-  const mine = snap.docs
-    .filter((d) => d.id === userId)
-    .map((d) => d.ref.parent.parent.id); // → productId
-  return mine;
-};
-
-// Simple version — outlet asks "am I subscribed to X"
-export const isSubscribedRestock = async (productId, userId) => {
-  const snap = await getDoc(doc(db, COL, productId, "subscribers", userId));
-  return snap.exists();
-};
-
-// After restock: read all subscribers, notify each, then clear.
-export const notifyRestockedProduct = async (product) => {
-  const subsSnap = await getDocs(
-    collection(db, COL, product.id, "subscribers"),
-  );
-  if (subsSnap.empty) return 0;
-
-  const batch = writeBatch(db);
-  subsSnap.docs.forEach((sub) => {
-    const notifRef = doc(collection(db, "notifications"));
-    batch.set(notifRef, {
-      userId: sub.id,
-      type: "restock",
-      productId: product.id,
-      productName: product.name || "",
-      productImage: product.images?.[0] || "",
-      itemCode: product.itemCode || "",
-      read: false,
-      createdAt: serverTimestamp(),
-    });
-    batch.delete(sub.ref); // one-shot — remove subscription
-  });
-  await batch.commit();
-  return subsSnap.size;
 };
 
 // ── Bulk import from Excel (#8) ──────────────────────

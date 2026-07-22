@@ -7,8 +7,8 @@ import {
   limit,
   orderBy,
   query,
-  runTransaction,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -19,47 +19,12 @@ const COL = "orders";
 export const placeOrder = async (userId, orderData) => {
   const orderRef = doc(collection(db, COL));
 
-  // Runs the transaction below, and afterwards drops "new_order"
-  // notifications for every admin so they see it in their bell.
-  // Transaction: reads current stock and writes atomically, so two
-  // outlets ordering the same product at the same moment can't
-  // oversell. If any item lacks stock, the whole order fails with a
-  // clear message (checkout shows it as a toast).
-  await runTransaction(db, async (tx) => {
-    // 1. Read every product first (transactions require reads before writes)
-    const reads = [];
-    for (const item of orderData.items) {
-      const ref = doc(db, "products", item.productId);
-      reads.push({ item, ref, snap: await tx.get(ref) });
-    }
-
-    // 2. Validate stock
-    for (const { item, snap } of reads) {
-      if (!snap.exists()) continue; // product deleted — allow, skip stock
-      const current = snap.data().stock || 0;
-      if (current < item.qty) {
-        throw new Error(
-          `Not enough stock for "${item.name}" — only ${current} left. Please adjust your cart.`,
-        );
-      }
-    }
-
-    // 3. Write order + decrement stock
-    tx.set(orderRef, {
-      ...orderData,
-      userId,
-      createdAt: serverTimestamp(),
-    });
-
-    for (const { item, ref, snap } of reads) {
-      if (!snap.exists()) continue;
-      const newStock = (snap.data().stock || 0) - item.qty;
-      tx.update(ref, {
-        stock: newStock,
-        inStock: newStock > 0,
-        ...(newStock === 0 ? { status: "draft" } : {}),
-      });
-    }
+  // Stock tracking has been removed — outlets order freely and
+  // availability is handled offline. Just write the order.
+  await setDoc(orderRef, {
+    ...orderData,
+    userId,
+    createdAt: serverTimestamp(),
   });
 
   // Clear cart

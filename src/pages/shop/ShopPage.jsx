@@ -3,13 +3,7 @@ import Pagination, { DEFAULT_PAGE_SIZE } from "@/components/common/Pagination";
 import RefreshControl from "@/components/common/RefreshControl";
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
-import {
-  getAllProducts,
-  getCategories,
-  isSubscribedRestock,
-  subscribeRestock,
-  unsubscribeRestock,
-} from "@/firebase/products";
+import { getAllProducts, getCategories } from "@/firebase/products";
 import usePersistedState from "@/hooks/usePersistedState";
 import { formatPrice, truncate } from "@/utils/helpers";
 import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
@@ -17,7 +11,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
-  FiBell,
   FiInfo,
   FiMinus,
   FiPackage,
@@ -27,6 +20,9 @@ import {
   FiTag,
   FiX,
 } from "react-icons/fi";
+
+// Max quantity a user can add per product in one go
+const MAX_QTY = 500;
 
 // Responsive columns without CSS breakpoints (works even if the
 // stylesheet is stale): <768px → 2, <1024px → 4, ≥1024px → 6
@@ -62,7 +58,7 @@ export default function ShopPage() {
   const [brandFilter, setBrandFilter] = usePersistedState("shop-brand", "all");
 
   // ── Notification deep-link: /shop?highlight=BW-080 ──
-  // The notifications bell navigates here after a restock ping;
+  // The notifications bell may deep-link to the shop with a highlight;
   // we prefill the search so the product jumps out. Read once on
   // mount from window.location so we always beat any race with
   // usePersistedState hydration.
@@ -181,6 +177,10 @@ export default function ShopPage() {
       toast.error(`Minimum order is ${min} units`);
       return;
     }
+    if (qty > MAX_QTY) {
+      toast.error(`Maximum order is ${MAX_QTY} units`);
+      return;
+    }
     addItem({
       productId: product.id,
       itemCode: product.itemCode || "",
@@ -189,7 +189,6 @@ export default function ShopPage() {
       basePrice: product.basePrice,
       onPromo: isOnPromo(product),
       qty,
-      stock: product.stock || 0,
       thumbnail: product.images?.[0] || "",
       minOrder: min,
       uom: product.uom || "",
@@ -465,46 +464,64 @@ export default function ShopPage() {
   );
 }
 
+// ── Quantity Stepper (click +/- OR type a number directly) ──
+// Shared by the grid card and the info modal so behavior stays
+// consistent: typing "50" jumps straight there instead of 50 clicks.
+function QtyStepper({ qty, setQty, min, max, size = "sm" }) {
+  const clamp = (val) => {
+    if (val === "" || isNaN(val)) return min;
+    return Math.min(max, Math.max(min, Math.trunc(val)));
+  };
+
+  const isSm = size === "sm";
+  const btnPad = isSm ? "px-2 py-1.5" : "px-3 py-3";
+  const inputPad = isSm ? "px-1 py-1.5 text-xs w-12" : "px-2 py-3 text-sm w-16";
+
+  return (
+    <div
+      className={`flex items-center border border-dark-200 dark:border-dark-700 overflow-hidden ${
+        isSm ? "rounded-lg" : "rounded-xl"
+      }`}>
+      <button
+        type="button"
+        onClick={() => setQty((q) => clamp(Number(q) - 1))}
+        disabled={qty <= min}
+        className={`${btnPad} hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors`}>
+        <FiMinus size={isSm ? 12 : 14} />
+      </button>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={qty}
+        min={min}
+        max={max}
+        onChange={(e) =>
+          setQty(e.target.value === "" ? "" : Number(e.target.value))
+        }
+        onBlur={(e) => setQty(clamp(Number(e.target.value)))}
+        className={`${inputPad} font-semibold text-dark-900 dark:text-dark-100 text-center border-x border-dark-200 dark:border-dark-700 bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+      />
+      <button
+        type="button"
+        onClick={() => setQty((q) => clamp(Number(q) + 1))}
+        disabled={qty >= max}
+        className={`${btnPad} hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors`}>
+        <FiPlus size={isSm ? 12 : 14} />
+      </button>
+    </div>
+  );
+}
+
 // ── Grid Card ─────────────────────────────────────────
 function ProductCard({ product, cartItem, onAdd, onInfo }) {
   const { user, isOutlet } = useAuth();
   const min = product.minOrder || 1;
-  const inStock = (product.stock || 0) > 0;
-  const [subbed, setSubbed] = useState(false);
-  const [subLoading, setSubLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isOutlet || inStock || !user?.uid) return;
-    let alive = true;
-    isSubscribedRestock(product.id, user.uid).then((v) => {
-      if (alive) setSubbed(v);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [product.id, isOutlet, inStock, user?.uid]);
-
-  const toggleSub = async (e) => {
-    e.stopPropagation();
-    if (!user?.uid || subLoading) return;
-    setSubLoading(true);
-    try {
-      if (subbed) {
-        await unsubscribeRestock(product.id, user.uid);
-        setSubbed(false);
-        toast.success("You won't be notified");
-      } else {
-        await subscribeRestock(product.id, user.uid);
-        setSubbed(true);
-        toast.success("We'll notify you when it's back in stock");
-      }
-    } catch {
-      toast.error("Couldn't update — try again");
-    } finally {
-      setSubLoading(false);
-    }
-  };
   const [qty, setQty] = useState(min);
+
+  const finalQty = () => {
+    if (qty === "" || isNaN(qty)) return min;
+    return Math.min(MAX_QTY, Math.max(min, Math.trunc(Number(qty))));
+  };
 
   return (
     <div className="card dark:bg-dark-900 dark:border-dark-800 overflow-hidden group hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all duration-200 flex flex-col">
@@ -547,32 +564,6 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
           <div
             className={`absolute ${isOnPromo(product) ? "top-9" : "top-2"} left-2 bg-dark-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
             {cartItem.qty} in cart
-          </div>
-        )}
-        {/* Out of stock overlay */}
-        {!inStock && (
-          <div className="absolute inset-0 bg-dark-900/50 flex flex-col items-center justify-center gap-2">
-            <span className="text-white text-xs font-semibold bg-red-500 px-3 py-1 rounded-full">
-              Out of Stock
-            </span>
-            {isOutlet && (
-              <button
-                onClick={toggleSub}
-                disabled={subLoading}
-                title={
-                  subbed
-                    ? "You'll be notified when it's back"
-                    : "Remind me when back in stock"
-                }
-                className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full transition-all disabled:opacity-70 ${
-                  subbed
-                    ? "bg-primary-600 text-white"
-                    : "bg-white/95 text-primary-700 hover:bg-white"
-                }`}>
-                <FiBell size={11} />
-                {subbed ? "Reminding you" : "Remind me"}
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -618,33 +609,21 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
         </div>
 
         {/* Qty + Add */}
-        {inStock && (
-          <div className="flex items-center gap-2 mt-auto flex-wrap">
-            <div className="flex items-center border border-dark-200 dark:border-dark-700 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setQty((q) => Math.max(min, q - 1))}
-                disabled={qty <= min}
-                className="px-2 py-1.5 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
-                <FiMinus size={12} />
-              </button>
-              <span className="px-2 py-1.5 text-xs font-semibold text-dark-900 dark:text-dark-100 min-w-[2rem] text-center border-x border-dark-200 dark:border-dark-700">
-                {qty}
-              </span>
-              <button
-                onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
-                disabled={qty >= product.stock}
-                className="px-2 py-1.5 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
-                <FiPlus size={12} />
-              </button>
-            </div>
-            <button
-              onClick={() => onAdd(product, qty)}
-              className="flex-1 min-w-[96px] btn-primary py-1.5 text-xs">
-              <FiShoppingCart size={12} />
-              Add
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 mt-auto flex-wrap">
+          <QtyStepper
+            qty={qty}
+            setQty={setQty}
+            min={min}
+            max={MAX_QTY}
+            size="sm"
+          />
+          <button
+            onClick={() => onAdd(product, finalQty())}
+            className="flex-1 min-w-[96px] btn-primary py-1.5 text-xs">
+            <FiShoppingCart size={12} />
+            Add
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -654,10 +633,14 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
 function ProductModal({ product, cartItem, onAdd, onClose }) {
   const { isOutlet } = useAuth();
   const min = product.minOrder || 1;
-  const inStock = (product.stock || 0) > 0;
   const promo = isOnPromo(product);
   const [qty, setQty] = useState(min);
   const [selImg, setSelImg] = useState(0);
+
+  const finalQty = () => {
+    if (qty === "" || isNaN(qty)) return min;
+    return Math.min(MAX_QTY, Math.max(min, Math.trunc(Number(qty))));
+  };
 
   // Lock body scroll while open
   useEffect(() => {
@@ -672,7 +655,6 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
   };
 
   const price = effectivePrice(product);
-  const lowStock = inStock && product.stock <= min * 2;
 
   // Portal to <body>: escapes the .page-enter transform that otherwise
   // breaks position:fixed and makes the modal follow page scroll.
@@ -775,27 +757,8 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
               )}
             </div>
 
-            {/* Stock + MOQ chips */}
+            {/* MOQ + FOC chips */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
-                  inStock
-                    ? lowStock
-                      ? "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400"
-                      : "bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400"
-                    : "bg-red-50 dark:bg-red-900/20 text-red-500"
-                }`}>
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    inStock
-                      ? lowStock
-                        ? "bg-amber-500"
-                        : "bg-green-500"
-                      : "bg-red-400"
-                  }`}
-                />
-                {inStock ? `${product.stock} in stock` : "Out of stock"}
-              </span>
               {min > 1 && (
                 <span className="text-xs font-medium text-dark-500 dark:text-dark-400 bg-dark-100 dark:bg-dark-800 px-2.5 py-1 rounded-full">
                   Min order: {min} {product.uom || "units"}
@@ -838,43 +801,29 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
           </div>
 
           {/* Sticky footer: qty + add */}
-          {inStock && (
-            <div className="p-5 sm:p-6 pt-4 border-t border-dark-100 dark:border-dark-800 bg-white dark:bg-dark-900">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center border border-dark-200 dark:border-dark-700 rounded-xl overflow-hidden shrink-0">
-                  <button
-                    onClick={() => setQty((q) => Math.max(min, q - 1))}
-                    disabled={qty <= min}
-                    className="px-3 py-3 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
-                    <FiMinus size={14} />
-                  </button>
-                  <span className="px-4 py-3 text-sm font-semibold text-dark-900 dark:text-dark-100 min-w-[3rem] text-center border-x border-dark-200 dark:border-dark-700">
-                    {qty}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setQty((q) => Math.min(product.stock, q + 1))
-                    }
-                    disabled={qty >= product.stock}
-                    className="px-3 py-3 hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors">
-                    <FiPlus size={14} />
-                  </button>
-                </div>
-                <button
-                  onClick={() => {
-                    onAdd(product, qty);
-                    onClose();
-                  }}
-                  className="btn-primary flex-1 py-3 justify-center">
-                  <FiShoppingCart size={16} />
-                  Add to Cart
-                </button>
-              </div>
-              <p className="text-center text-xs text-dark-400 mt-2">
-                Subtotal: {formatPrice(price * qty)}
-              </p>
+          <div className="p-5 sm:p-6 pt-4 border-t border-dark-100 dark:border-dark-800 bg-white dark:bg-dark-900">
+            <div className="flex items-center gap-3">
+              <QtyStepper
+                qty={qty}
+                setQty={setQty}
+                min={min}
+                max={MAX_QTY}
+                size="lg"
+              />
+              <button
+                onClick={() => {
+                  onAdd(product, finalQty());
+                  onClose();
+                }}
+                className="btn-primary flex-1 py-3 justify-center">
+                <FiShoppingCart size={16} />
+                Add to Cart
+              </button>
             </div>
-          )}
+            <p className="text-center text-xs text-dark-400 mt-2">
+              Subtotal: {formatPrice(price * finalQty())}
+            </p>
+          </div>
         </div>
       </div>
 

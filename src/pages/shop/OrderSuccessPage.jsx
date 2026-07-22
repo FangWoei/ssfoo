@@ -29,7 +29,8 @@ export default function OrderSuccessPage() {
         Order Placed!
       </h1>
       <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mb-1">
-        Your order has been submitted and stock has been reserved.
+        Your order has been submitted. We will contact you shortly to confirm
+        availability and delivery.
       </p>
       <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
         The admin will review and process it shortly.

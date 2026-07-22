@@ -50,15 +50,11 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Final MOQ / stock validation
+    // Final MOQ validation
     for (const item of items) {
       const moq = getMoq(item);
       if (item.qty < moq) {
         toast.error(`${item.name}: minimum order quantity is ${moq}`);
-        return;
-      }
-      if (item.qty > item.stock) {
-        toast.error(`${item.name}: only ${item.stock} in stock`);
         return;
       }
     }

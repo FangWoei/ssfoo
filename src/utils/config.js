@@ -1,10 +1,6 @@
 // src/utils/config.js
 // App-wide tunable settings.
 
-// Low-stock alert threshold (#2). Products with stock at or below this
-// number show up in the dashboard low-stock alert. Change freely.
-export const LOW_STOCK_THRESHOLD = 12;
-
 // Auto-refresh interval options (#1), in seconds. 0 = off.
 export const REFRESH_INTERVALS = [
   { label: "Off", value: 0 },

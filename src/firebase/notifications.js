@@ -1,8 +1,7 @@
 // src/firebase/notifications.js
-// Per-user notifications (currently only "restock").
+// Per-user notifications (new_order, chat_message, chat_reply).
 // One doc per event: notifications/{autoId}
-//   { userId, type: "restock", productId, productName, productImage,
-//     itemCode, read: false, createdAt }
+//   { userId, type, ...type-specific fields, read: false, createdAt }
 import {
   collection,
   doc,

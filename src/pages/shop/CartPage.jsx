@@ -30,10 +30,6 @@ export default function CartPage() {
 
   const handleQty = (item, next) => {
     const moq = getMoq(item);
-    if (next > item.stock) {
-      toast.error(`Only ${item.stock} in stock`);
-      return;
-    }
     if (next < moq) {
       toast.error(`Minimum order quantity is ${moq}`);
       return;
@@ -158,14 +154,12 @@ export default function CartPage() {
                           type="number"
                           value={item.qty}
                           min={moq}
-                          max={item.stock}
                           onChange={(e) => handleQtyInput(item, e.target.value)}
                           className="w-14 text-center text-sm font-semibold bg-transparent text-slate-900 dark:text-slate-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <button
                           onClick={() => handleQty(item, item.qty + 1)}
-                          disabled={item.qty >= item.stock}
-                          className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                          className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                           <FiPlus size={13} />
                         </button>
                       </div>
@@ -187,12 +181,6 @@ export default function CartPage() {
                         </span>
                       </div>
                     </div>
-
-                    {item.qty >= item.stock && (
-                      <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5">
-                        Max stock reached ({item.stock} available)
-                      </p>
-                    )}
                   </div>
                 </div>
 

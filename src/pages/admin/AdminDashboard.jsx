@@ -4,12 +4,10 @@ import RefreshControl from "@/components/common/RefreshControl";
 import { getAllOrders } from "@/firebase/orders";
 import { getAllOutlets } from "@/firebase/outlets";
 import { getAllProducts } from "@/firebase/products";
-import { LOW_STOCK_THRESHOLD } from "@/utils/config";
 import { formatPrice } from "@/utils/helpers";
 import { formatOrderDate, shortId } from "@/utils/orderHelpers";
 import { useEffect, useMemo, useState } from "react";
 import {
-  FiAlertTriangle,
   FiBox,
   FiDollarSign,
   FiHome,
@@ -86,16 +84,6 @@ export default function AdminDashboard() {
       setRefreshing(false);
     }
   };
-
-  // Low-stock products (#2)
-  const lowStockProducts = products
-    .filter(
-      (p) =>
-        p.status === "active" &&
-        (p.stock || 0) <=
-          (p.lowStockAt > 0 ? p.lowStockAt : LOW_STOCK_THRESHOLD),
-    )
-    .sort((a, b) => (a.stock || 0) - (b.stock || 0));
 
   const rangeDays = RANGES.find((r) => r.key === range)?.days;
 
@@ -248,90 +236,6 @@ export default function AdminDashboard() {
             storageKey="ssfoo-refresh-dashboard"
           />
         </div>
-      </div>
-
-      {/* ── Low-stock alert (#2) ── */}
-      {lowStockProducts.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-900/15 border border-amber-200 dark:border-amber-800/50 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <FiAlertTriangle
-              size={16}
-              className="text-amber-600 dark:text-amber-400"
-            />
-            <h2 className="font-bold text-sm text-amber-800 dark:text-amber-300">
-              Low Stock Alert
-            </h2>
-            <span className="text-xs text-amber-600 dark:text-amber-400">
-              {lowStockProducts.length} product
-              {lowStockProducts.length > 1 ? "s" : ""} at or below their alert
-              level (default {LOW_STOCK_THRESHOLD})
-            </span>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {lowStockProducts.slice(0, 9).map((p) => (
-              <Link
-                key={p.id}
-                to={`/admin/products/${p.id}/edit`}
-                className="flex items-center justify-between gap-2 min-w-0 bg-white dark:bg-dark-900 rounded-xl px-3 py-2 hover:ring-1 hover:ring-amber-300 transition-all">
-                <span
-                  className="text-xs font-medium text-dark-800 dark:text-dark-200 truncate"
-                  style={{
-                    minWidth: 0,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}>
-                  {p.itemCode && (
-                    <span className="font-mono text-primary-600 dark:text-primary-400 mr-1">
-                      {p.itemCode}
-                    </span>
-                  )}
-                  {p.name}
-                </span>
-                <span
-                  className={`text-xs font-bold shrink-0 ${
-                    (p.stock || 0) === 0
-                      ? "text-red-500"
-                      : "text-amber-600 dark:text-amber-400"
-                  }`}>
-                  {p.stock || 0} left
-                </span>
-              </Link>
-            ))}
-          </div>
-          {lowStockProducts.length > 9 && (
-            <Link
-              to="/admin/products"
-              className="inline-block mt-2 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline">
-              +{lowStockProducts.length - 9} more — view all products
-            </Link>
-          )}
-        </div>
-      )}
-
-      {/* ── Stat cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {statCards.map((c) => {
-          const Card = (
-            <div className="bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 rounded-2xl p-4 h-full hover:border-primary-400 transition-colors">
-              <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${c.accent}`}>
-                <c.icon size={17} />
-              </div>
-              <p className="text-lg font-bold text-dark-900 dark:text-dark-100 leading-tight">
-                {c.value}
-              </p>
-              <p className="text-xs text-dark-400 mt-0.5">{c.label}</p>
-            </div>
-          );
-          return c.link ? (
-            <Link key={c.label} to={c.link}>
-              {Card}
-            </Link>
-          ) : (
-            <div key={c.label}>{Card}</div>
-          );
-        })}
       </div>
 
       {/* ── Revenue chart ── */}

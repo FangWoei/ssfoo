@@ -11,12 +11,10 @@ const HEADERS = [
   "brand",
   "basePrice",
   "minOrder",
-  "stock",
   "status",
   "uom",
   "focBuy",
   "focFree",
-  "lowStockAt",
 ];
 
 // ── Generate a downloadable template with an example row ──
@@ -29,7 +27,6 @@ export const downloadProductTemplate = (categories = [], brands = []) => {
     brand: brands[0]?.name || "",
     basePrice: 4.5,
     minOrder: 12,
-    stock: 500,
     status: "active",
     uom: "PCS",
     focBuy: 12,
@@ -75,7 +72,6 @@ export const downloadProductTemplate = (categories = [], brands = []) => {
     },
     { Field: "basePrice", Required: "Yes", Notes: "Number > 0, e.g. 4.50" },
     { Field: "minOrder", Required: "No", Notes: "Whole number, default 1" },
-    { Field: "stock", Required: "No", Notes: "Whole number, default 0" },
     {
       Field: "status",
       Required: "No",
@@ -93,11 +89,6 @@ export const downloadProductTemplate = (categories = [], brands = []) => {
         "FOC rule: buy this many… (fill both focBuy and focFree, or neither)",
     },
     { Field: "focFree", Required: "No", Notes: "…get this many free" },
-    {
-      Field: "lowStockAt",
-      Required: "No",
-      Notes: "Low-stock alert level for this product (empty = global default)",
-    },
   ];
   const ws2 = XLSX.utils.json_to_sheet(notes);
   ws2["!cols"] = [{ wch: 14 }, { wch: 10 }, { wch: 60 }];
@@ -129,7 +120,6 @@ export const parseProductFile = async (file, categories = [], brands = []) => {
     const brandRaw = String(raw.brand || "").trim();
     const price = parseFloat(raw.basePrice);
     const minOrder = parseInt(raw.minOrder, 10);
-    const stock = parseInt(raw.stock, 10);
     const status =
       String(raw.status || "draft")
         .trim()
@@ -157,7 +147,6 @@ export const parseProductFile = async (file, categories = [], brands = []) => {
 
     const focBuy = parseInt(raw.focBuy, 10);
     const focFree = parseInt(raw.focFree, 10);
-    const lowStockAt = parseInt(raw.lowStockAt, 10);
 
     valid.push({
       itemCode,
@@ -170,13 +159,10 @@ export const parseProductFile = async (file, categories = [], brands = []) => {
           .toUpperCase() || "PCS",
       focBuy: !isNaN(focBuy) && focBuy > 0 && focFree > 0 ? focBuy : 0,
       focFree: !isNaN(focFree) && focBuy > 0 && focFree > 0 ? focFree : 0,
-      lowStockAt: !isNaN(lowStockAt) && lowStockAt > 0 ? lowStockAt : 0,
       category,
       basePrice: price,
       minOrder: isNaN(minOrder) || minOrder < 1 ? 1 : minOrder,
-      stock: isNaN(stock) || stock < 0 ? 0 : stock,
       status,
-      inStock: (isNaN(stock) ? 0 : stock) > 0,
       images: [],
       isPromo: false,
     });
@@ -197,12 +183,10 @@ export const exportProductsToExcel = (products = []) => {
     brand: p.brand || "",
     basePrice: Number(p.basePrice || 0),
     minOrder: p.minOrder || 1,
-    stock: p.stock || 0,
     status: p.status || "draft",
     uom: p.uom || "",
     focBuy: p.focBuy || "",
     focFree: p.focFree || "",
-    lowStockAt: p.lowStockAt || "",
   }));
 
   const ws = XLSX.utils.json_to_sheet(rows, { header: HEADERS });

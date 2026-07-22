@@ -50,10 +50,7 @@ export default function NotificationsBell() {
   const openNotif = async (n) => {
     setOpen(false);
     markNotificationRead(n.id); // fire-and-forget
-    if (n.type === "restock") {
-      const q = n.itemCode || n.productName || "";
-      navigate(`/shop?highlight=${encodeURIComponent(q)}`);
-    } else if (n.type === "new_order") {
+    if (n.type === "new_order") {
       navigate(`/admin/orders/${n.orderId}`);
     } else if (n.type === "chat_message") {
       navigate("/admin/chats");
@@ -142,7 +139,7 @@ export default function NotificationsBell() {
                           ? "💬 New message"
                           : n.type === "chat_reply"
                             ? "💬 New reply from admin"
-                            : "🎉 Back in stock"}
+                            : "Notification"}
                     </p>
                     <p
                       className="text-xs text-dark-600 dark:text-dark-300 truncate"
@@ -170,16 +167,7 @@ export default function NotificationsBell() {
                         </>
                       ) : n.type === "chat_reply" ? (
                         <>{n.preview}</>
-                      ) : (
-                        <>
-                          {n.itemCode && (
-                            <span className="font-mono font-bold text-primary-600 dark:text-primary-400 mr-1">
-                              {n.itemCode}
-                            </span>
-                          )}
-                          {n.productName}
-                        </>
-                      )}
+                      ) : null}
                     </p>
                     <p className="text-[10px] text-dark-400 mt-0.5">
                       {fmtWhen(n.createdAt)}
@@ -197,4 +185,3 @@ export default function NotificationsBell() {
     </div>
   );
 }
-  

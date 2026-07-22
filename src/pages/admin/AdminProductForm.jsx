@@ -8,7 +8,6 @@ import {
   getCategories,
   getProduct,
   getUoms,
-  notifyRestockedProduct,
   updateProduct,
 } from "@/firebase/products";
 import { uploadImages } from "@/firebase/storage";
@@ -39,13 +38,11 @@ const BLANK = {
   uom: "PCS",
   focBuy: "",
   focFree: "",
-  lowStockAt: "",
   category: "",
   basePrice: "",
   salePrice: "",
   isPromo: false,
   minOrder: 1,
-  stock: 0,
   status: "draft",
   images: [],
 };
@@ -66,7 +63,6 @@ export default function AdminProductForm() {
   const [dragOver, setDragOver] = useState(false);
   const [imgUrl, setImgUrl] = useState("");
   const [uoms, setUoms] = useState([]);
-  const [prevStock, setPrevStock] = useState(0);
   const [brands, setBrands] = useState([]);
   const [uomModal, setUomModal] = useState(false);
   const [newUom, setNewUom] = useState("");
@@ -90,8 +86,6 @@ export default function AdminProductForm() {
             navigate("/admin/products");
             return;
           }
-          // Remember the previous stock so we can detect a 0→n restock
-          setPrevStock(p.stock || 0);
           setForm({
             ...BLANK,
             ...p,
@@ -288,13 +282,11 @@ export default function AdminProductForm() {
     const name = form.name.trim();
     const price = parseFloat(form.basePrice);
     const minOrder = parseInt(form.minOrder, 10) || 1;
-    const stock = parseInt(form.stock, 10) || 0;
     const isPromo = Boolean(form.isPromo);
     const salePrice = isPromo ? parseFloat(form.salePrice) : null;
     const uom = form.uom.trim().toUpperCase();
     const focBuy = parseInt(form.focBuy, 10) || 0;
     const focFree = parseInt(form.focFree, 10) || 0;
-    const lowStockAt = parseInt(form.lowStockAt, 10) || 0;
 
     const itemCode = form.itemCode.trim();
     if (!itemCode) return toast.error("Item code is required");
@@ -302,7 +294,6 @@ export default function AdminProductForm() {
     if (!form.category) return toast.error("Please select a category");
     if (isNaN(price) || price <= 0) return toast.error("Enter a valid price");
     if (minOrder < 1) return toast.error("MOQ must be at least 1");
-    if (stock < 0) return toast.error("Stock cannot be negative");
     if (isPromo) {
       if (isNaN(salePrice) || salePrice <= 0)
         return toast.error("Enter a valid promotion price");
@@ -324,7 +315,6 @@ export default function AdminProductForm() {
       uom,
       focBuy,
       focFree,
-      lowStockAt,
       category: form.category,
       basePrice: price,
       salePrice: isPromo ? salePrice : null,
@@ -341,19 +331,6 @@ export default function AdminProductForm() {
       if (isEdit) {
         await updateProduct(id, data);
         toast.success("Product updated");
-        // Restock notification: only if this admin bumped stock from 0
-        if (prevStock === 0 && (data.stock || 0) > 0) {
-          try {
-            const count = await notifyRestockedProduct({ id, ...data });
-            if (count > 0) {
-              toast.success(
-                `🔔 ${count} outlet${count > 1 ? "s" : ""} notified`,
-              );
-            }
-          } catch (e) {
-            console.error("Restock notify failed:", e);
-          }
-        }
       } else {
         await addProduct(data);
         toast.success("Product created");
@@ -544,34 +521,6 @@ export default function AdminProductForm() {
               className={inputCls}
             />
           </div>
-          <div>
-            <label className={labelCls}>Stock</label>
-            <input
-              type="number"
-              min="0"
-              value={form.stock}
-              onChange={set("stock")}
-              className={inputCls}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className={labelCls}>
-            Low-stock alert level{" "}
-            <span className="normal-case font-normal">
-              (optional — empty uses the global default)
-            </span>
-          </label>
-          <input
-            type="number"
-            min="0"
-            value={form.lowStockAt}
-            onChange={set("lowStockAt")}
-            placeholder="e.g. 24"
-            className={inputCls}
-            style={{ maxWidth: "200px" }}
-          />
         </div>
       </div>
 

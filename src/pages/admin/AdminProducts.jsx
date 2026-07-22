@@ -522,7 +522,7 @@ export default function AdminProducts() {
                         {p.category || "Uncategorized"}
                         {p.brand ? ` · ${p.brand}` : ""} · MOQ {p.minOrder || 1}
                       </p>
-                      {/* Mobile-only price + stock (desktop shows the right column) */}
+                      {/* Mobile-only price (desktop shows the right column) */}
                       <p className="sm:hidden text-xs mt-0.5">
                         <span className="font-bold text-dark-900 dark:text-dark-100">
                           {isOnPromo(p)
@@ -534,14 +534,6 @@ export default function AdminProducts() {
                             {formatPrice(p.basePrice || 0)}
                           </span>
                         )}
-                        <span
-                          className={`ml-1.5 ${
-                            (p.stock || 0) > 0
-                              ? "text-dark-400"
-                              : "text-red-500 font-semibold"
-                          }`}>
-                          · {p.stock || 0} in stock
-                        </span>
                       </p>
                     </div>
 
@@ -556,19 +548,9 @@ export default function AdminProducts() {
                           </p>
                         </>
                       ) : (
-                        <>
-                          <p className="text-sm font-bold text-dark-900 dark:text-dark-100">
-                            {formatPrice(p.basePrice || 0)}
-                          </p>
-                          <p
-                            className={`text-[11px] ${
-                              (p.stock || 0) > 0
-                                ? "text-dark-400"
-                                : "text-red-500 font-semibold"
-                            }`}>
-                            {p.stock || 0} in stock
-                          </p>
-                        </>
+                        <p className="text-sm font-bold text-dark-900 dark:text-dark-100">
+                          {formatPrice(p.basePrice || 0)}
+                        </p>
                       )}
                     </div>
 
