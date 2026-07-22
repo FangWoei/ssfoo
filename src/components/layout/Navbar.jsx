@@ -51,7 +51,7 @@ export default function Navbar() {
           <Link
             to="/shop"
             className="font-display text-xl sm:text-2xl font-bold text-primary-600 tracking-tight whitespace-nowrap shrink-0">
-            SS FOO.SDN.BHD
+            SS FOO SDN.BHD.
           </Link>
 
           {/* Desktop Nav */}

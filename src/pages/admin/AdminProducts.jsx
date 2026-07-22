@@ -112,7 +112,11 @@ export default function AdminProducts() {
       );
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      list = list.filter((p) => p.itemCode?.toLowerCase().includes(q));
+      list = list.filter(
+        (p) =>
+          p.itemCode?.toLowerCase().includes(q) ||
+          p.name?.toLowerCase().includes(q),
+      );
     }
     return list;
   }, [products, statusFilter, catFilter, brandFilter, search]);
@@ -154,6 +158,34 @@ export default function AdminProducts() {
       toast.success("Product deleted");
     } catch {
       toast.error("Failed to delete");
+    }
+  };
+
+  const handleBulkSetStatus = async (newStatus) => {
+    if (!selected.length) return;
+    const label = newStatus === "active" ? "activate" : "set to draft";
+    if (
+      !window.confirm(
+        `${label.charAt(0).toUpperCase() + label.slice(1)} ${selected.length} product${selected.length > 1 ? "s" : ""}?`,
+      )
+    )
+      return;
+    try {
+      await Promise.all(
+        selected.map((id) => updateProduct(id, { status: newStatus })),
+      );
+      setProducts((prev) =>
+        prev.map((p) =>
+          selected.includes(p.id) ? { ...p, status: newStatus } : p,
+        ),
+      );
+      toast.success(
+        `${selected.length} product${selected.length > 1 ? "s" : ""} ${newStatus === "active" ? "activated" : "set to draft"}`,
+      );
+      setSelected([]);
+    } catch (e) {
+      console.error("Bulk status change failed:", e);
+      toast.error("Some updates failed — try again");
     }
   };
 
@@ -331,7 +363,7 @@ export default function AdminProducts() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products…"
+            placeholder="Search by item code or name…"
             className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 focus:border-primary-500 text-dark-700 dark:text-dark-200 outline-none transition-colors"
           />
           {search && (
@@ -390,16 +422,26 @@ export default function AdminProducts() {
           <span className="text-sm font-semibold">
             {selected.length} selected
           </span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 justify-end">
             <button
               onClick={() => setSelected([])}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
               Clear
             </button>
             <button
+              onClick={() => handleBulkSetStatus("active")}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
+              ✓ Set Active
+            </button>
+            <button
+              onClick={() => handleBulkSetStatus("draft")}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
+              ✎ Set Draft
+            </button>
+            <button
               onClick={handleBulkDelete}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500 hover:bg-red-600 transition-colors">
-              Delete selected
+              Delete
             </button>
           </div>
         </div>
