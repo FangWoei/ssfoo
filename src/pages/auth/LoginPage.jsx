@@ -40,6 +40,8 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoad] = useState(false);
   const [focused, setFocused] = useState(null);
+  const [agreed, setAgreed] = useState(false);
+  const [tcOpen, setTcOpen] = useState(false);
 
   // Mascot state
   const covering = focused === "password" || focused === "adminCode";
@@ -73,6 +75,10 @@ export default function LoginPage() {
         navigate("/admin");
       } else {
         // Outlet login
+        if (!agreed) {
+          toast.error("Please accept the Terms & Conditions to continue");
+          return;
+        }
         if (!form.outletId.trim()) {
           toast.error("Outlet ID is required");
           setLoad(false);
@@ -326,9 +332,36 @@ export default function LoginPage() {
               </Link>
             </div>
 
+            {tab === "outlet" && (
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-dark-300 dark:border-dark-600 text-primary-600 focus:ring-primary-500 shrink-0 cursor-pointer"
+                />
+                <span className="text-xs text-dark-600 dark:text-dark-300 leading-relaxed">
+                  I agree to the{" "}
+                  <button
+                    type="button"
+                    onClick={() => setTcOpen(true)}
+                    className="text-primary-600 dark:text-primary-400 font-semibold hover:underline">
+                    Terms &amp; Conditions
+                  </button>{" "}
+                  / 我同意
+                  <button
+                    type="button"
+                    onClick={() => setTcOpen(true)}
+                    className="text-primary-600 dark:text-primary-400 font-semibold hover:underline ml-1">
+                    条款与条件
+                  </button>
+                </span>
+              </label>
+            )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (tab === "outlet" && !agreed)}
               className="w-full py-3.5 rounded-xl bg-primary-600 hover:bg-primary-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-primary-600/25 transition-all">
               {loading ? (
                 <>
@@ -353,6 +386,155 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Terms & Conditions modal ── */}
+      {tcOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setTcOpen(false)}>
+          <div className="bg-white dark:bg-dark-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-dark-100 dark:border-dark-800 flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-lg font-bold text-dark-900 dark:text-dark-100">
+                  Terms &amp; Conditions
+                </h2>
+                <p className="text-xs text-dark-400">条款与条件</p>
+              </div>
+              <button
+                onClick={() => setTcOpen(false)}
+                className="p-2 rounded-lg text-dark-500 hover:text-dark-800 dark:hover:text-dark-200 hover:bg-dark-50 dark:hover:bg-dark-800 transition-colors">
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 text-sm">
+              {/* English */}
+              <section className="space-y-3">
+                <h3 className="font-bold text-dark-900 dark:text-dark-100 text-base">
+                  English
+                </h3>
+                <p className="text-dark-600 dark:text-dark-300 leading-relaxed">
+                  By logging into the SS FOO SDN. BHD. wholesale ordering
+                  portal, you (the outlet) agree to the following terms:
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-dark-600 dark:text-dark-300 leading-relaxed">
+                  <li>
+                    <b>Account use.</b> This account belongs to the registered
+                    outlet only. Do not share your login credentials with anyone
+                    outside your business. You are responsible for all activity
+                    under your account.
+                  </li>
+                  <li>
+                    <b>Orders are proposals.</b> Placing an order in this portal
+                    is a purchase request. SS FOO SDN. BHD. reserves the right
+                    to confirm, adjust, or reject any order based on product
+                    availability, pricing accuracy, or stock levels.
+                  </li>
+                  <li>
+                    <b>Availability.</b> Availability is confirmed offline by
+                    our team after your order is placed. If any item is
+                    unavailable, we will contact you to adjust or substitute.
+                  </li>
+                  <li>
+                    <b>Pricing.</b> Prices shown are indicative wholesale prices
+                    and may change without notice. The final invoice price
+                    applies.
+                  </li>
+                  <li>
+                    <b>Payment &amp; delivery.</b> Payment terms and delivery
+                    arrangements are as agreed separately with SS FOO SDN. BHD.
+                  </li>
+                  <li>
+                    <b>Returns.</b> Returns and exchanges are subject to our
+                    standard wholesale policy. Contact us within 3 days of
+                    delivery for any issues.
+                  </li>
+                  <li>
+                    <b>Privacy.</b> Your account and order data are used only to
+                    process your orders and provide service. We do not share
+                    your data with third parties.
+                  </li>
+                  <li>
+                    <b>Changes to terms.</b> These terms may be updated. Your
+                    continued use of the portal means you accept any updates.
+                  </li>
+                </ol>
+              </section>
+
+              <hr className="border-dark-100 dark:border-dark-800" />
+
+              {/* Chinese */}
+              <section className="space-y-3">
+                <h3 className="font-bold text-dark-900 dark:text-dark-100 text-base">
+                  中文
+                </h3>
+                <p className="text-dark-600 dark:text-dark-300 leading-relaxed">
+                  登入 SS FOO SDN. BHD.
+                  批发订购平台，即代表阁下（门店）同意以下条款：
+                </p>
+                <ol className="list-decimal list-inside space-y-2 text-dark-600 dark:text-dark-300 leading-relaxed">
+                  <li>
+                    <b>账号使用。</b>
+                    本账号仅供已注册门店使用。请勿将登入资料分享给业务以外的人士。您须为账号下的所有操作负责。
+                  </li>
+                  <li>
+                    <b>订单为请求。</b>在本平台下单属于采购请求。SS FOO SDN.
+                    BHD.
+                    保留根据货品供应、价格及库存情况，确认、调整或拒绝任何订单的权利。
+                  </li>
+                  <li>
+                    <b>供货情况。</b>
+                    订单下达后，供货情况由我们的团队在线下确认。若有商品缺货，我们会主动联系您安排调整或替换。
+                  </li>
+                  <li>
+                    <b>价格。</b>
+                    平台显示的价格为参考批发价，可能随时调整，恕不另行通知。最终以发票价格为准。
+                  </li>
+                  <li>
+                    <b>付款与送货。</b>付款方式与送货安排以与 SS FOO SDN. BHD.
+                    另行协定的条款为准。
+                  </li>
+                  <li>
+                    <b>退换货。</b>退换货依照我们的批发政策处理。请在收货 3
+                    天内联系我们处理任何问题。
+                  </li>
+                  <li>
+                    <b>隐私。</b>
+                    您的账号及订单数据仅用于处理订单及提供服务。我们不会与第三方分享您的数据。
+                  </li>
+                  <li>
+                    <b>条款更新。</b>
+                    本条款可能会更新。您持续使用本平台，即视为接受最新版本的条款。
+                  </li>
+                </ol>
+              </section>
+
+              <p className="text-xs text-dark-400 italic pt-2">
+                Last updated / 最后更新:{" "}
+                {new Date().toLocaleDateString("en-MY", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+            </div>
+
+            <div className="px-6 py-4 border-t border-dark-100 dark:border-dark-800 flex items-center justify-between gap-3 shrink-0">
+              <p className="text-xs text-dark-500 dark:text-dark-400 hidden sm:block">
+                Tick the checkbox to accept / 勾选方框以同意
+              </p>
+              <button
+                onClick={() => {
+                  setAgreed(true);
+                  setTcOpen(false);
+                }}
+                className="px-5 py-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold transition-colors">
+                Accept &amp; Close / 同意
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
