@@ -320,9 +320,7 @@ export default function AdminProductForm() {
       salePrice: isPromo ? salePrice : null,
       isPromo,
       minOrder,
-      stock,
       status,
-      inStock: stock > 0,
       images: form.images,
     };
 

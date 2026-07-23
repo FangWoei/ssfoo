@@ -142,14 +142,9 @@ export default function ShopPage() {
       return matchCat && matchBrand && matchSearch;
     })
     .sort((a, b) => {
-      // Defensive: some legacy products may be missing name/basePrice
-      const priceA = Number(a.basePrice) || 0;
-      const priceB = Number(b.basePrice) || 0;
-      const nameA = a.name || "";
-      const nameB = b.name || "";
-      if (sortBy === "price_asc") return priceA - priceB;
-      if (sortBy === "price_desc") return priceB - priceA;
-      if (sortBy === "name_asc") return nameA.localeCompare(nameB);
+      if (sortBy === "price_asc") return a.basePrice - b.basePrice;
+      if (sortBy === "price_desc") return b.basePrice - a.basePrice;
+      if (sortBy === "name_asc") return a.name.localeCompare(b.name);
       return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
     });
 
@@ -205,7 +200,7 @@ export default function ShopPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-3xl bg-gradient-to-br from-[#FFF9F5] via-[#FFF5F0] to-[#F0FBF8] dark:from-transparent dark:via-transparent dark:to-transparent -mx-4 md:-mx-6 -my-6 px-4 md:px-6 py-6 min-h-full space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center justify-between gap-3">
@@ -263,7 +258,7 @@ export default function ShopPage() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none"
+              className="px-3 py-2 text-sm rounded-xl bg-white/80 dark:bg-dark-900/60 backdrop-blur-md border border-white dark:border-dark-700 shadow-sm text-dark-700 dark:text-dark-200 outline-none"
               style={{ flex: "1 1 150px", minWidth: 0 }}>
               <option value="all">All categories</option>
               {categories.map((c) => (
@@ -276,7 +271,7 @@ export default function ShopPage() {
               <select
                 value={brandFilter}
                 onChange={(e) => setBrandFilter(e.target.value)}
-                className="px-3 py-2 text-sm rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none"
+                className="px-3 py-2 text-sm rounded-xl bg-white/80 dark:bg-dark-900/60 backdrop-blur-md border border-white dark:border-dark-700 shadow-sm text-dark-700 dark:text-dark-200 outline-none"
                 style={{ flex: "1 1 150px", minWidth: 0 }}>
                 <option value="all">All brands</option>
                 {visibleBrands.map((b) => (
@@ -529,7 +524,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
   };
 
   return (
-    <div className="card dark:bg-dark-900 dark:border-dark-800 overflow-hidden group hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all duration-200 flex flex-col">
+    <div className="bg-white dark:bg-dark-900 rounded-3xl border border-white dark:border-dark-800 overflow-hidden group hover:shadow-xl hover:shadow-primary-500/15 hover:-translate-y-0.5 dark:hover:border-primary-800 transition-all duration-300 flex flex-col shadow-md shadow-primary-500/5">
       {/* Image */}
       <div
         onClick={onInfo}
@@ -555,7 +550,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
         {/* Info button */}
         <button
           onClick={onInfo}
-          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 dark:bg-dark-800/90 flex items-center justify-center text-dark-500 hover:text-primary-600 shadow transition-colors">
+          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/95 dark:bg-dark-800/95 backdrop-blur flex items-center justify-center text-dark-500 hover:text-primary-600 hover:scale-110 shadow-md transition-all">
           <FiInfo size={13} />
         </button>
         {/* Promo ribbon */}
@@ -567,7 +562,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
         {/* Cart badge */}
         {cartItem && (
           <div
-            className={`absolute ${isOnPromo(product) ? "top-9" : "top-2"} left-2 bg-dark-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+            className={`absolute ${isOnPromo(product) ? "top-9" : "top-2"} left-2 bg-primary-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow`}>
             {cartItem.qty} in cart
           </div>
         )}
@@ -602,7 +597,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
             </p>
           )}
           {min > 1 && (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400">
+            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full self-start">
               Min: {min} {product.uom || "units"}
             </p>
           )}

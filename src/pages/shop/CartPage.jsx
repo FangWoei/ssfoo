@@ -41,7 +41,7 @@ export default function CartPage() {
   };
 
   const handleQtyInput = (item, raw) => {
-    if (raw === "" || raw === "-") return; // allow typing
+    if (raw === "" || raw === "-") return;
     const num = parseInt(raw, 10);
     if (isNaN(num)) return;
     const moq = getMoq(item);
@@ -63,7 +63,7 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 px-4 text-center">
-        <div className="w-20 h-20 rounded-full bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center mb-5">
+        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#FFE8D6] to-[#A7F3D0] dark:from-teal-900/30 dark:to-teal-900/30 flex items-center justify-center shadow-md mb-5">
           <FiShoppingBag
             size={32}
             className="text-teal-600 dark:text-teal-400"
@@ -77,7 +77,7 @@ export default function CartPage() {
         </p>
         <Link
           to="/shop"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors">
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-md shadow-primary-500/25 text-sm font-semibold transition-colors">
           Browse Products <FiArrowRight size={15} />
         </Link>
       </div>
@@ -123,16 +123,16 @@ export default function CartPage() {
                     className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shrink-0 self-start"
                   />
 
-                  <div className="flex-1 min-w-0" style={{ minWidth: 0 }}>
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 break-words">
                           {item.name}
                         </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-1">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5">
                           {formatPrice(item.price)} / unit
                           {moq > 1 && (
-                            <span className="ml-2 inline-block px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-[10px] font-semibold">
+                            <span className="ml-2 inline-block px-1.5 py-0.5 rounded bg-[#FFE8D6] dark:bg-amber-900/30 text-amber-800 dark:text-amber-400 text-[10px] font-semibold">
                               MOQ {moq}
                             </span>
                           )}
@@ -215,7 +215,7 @@ export default function CartPage() {
         </div>
 
         {/* ── Summary ── */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 lg:sticky lg:top-24">
+        <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5 lg:sticky lg:top-24">
           <h2 className="font-bold text-slate-900 dark:text-slate-100 mb-4">
             Order Summary
           </h2>
@@ -238,7 +238,7 @@ export default function CartPage() {
 
           <button
             onClick={() => navigate("/checkout")}
-            className="w-full mt-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+            className="w-full mt-5 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white shadow-md shadow-primary-500/25 text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
             Proceed to Checkout <FiArrowRight size={15} />
           </button>
           <Link
