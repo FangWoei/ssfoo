@@ -63,12 +63,29 @@ export const sendMessage = async (
   notifyAdminsChat(outletUid, outletName, outletId, lastMessage);
 };
 
-// ── Admin replies to an outlet ────────────────────────
-export const sendAdminReply = async (outletUid, text) => {
+// ── Admin replies to an outlet (text and/or product) ──
+export const sendAdminReply = async (
+  outletUid,
+  { text = "", product = null } = {},
+) => {
+  const cleanProduct = product
+    ? {
+        id: product.id || "",
+        itemCode: product.itemCode || "",
+        name: product.name || "",
+        image: product.image || "",
+        price: product.price || 0,
+      }
+    : null;
+
+  const lastMessage = cleanProduct
+    ? `📦 ${cleanProduct.itemCode || cleanProduct.name}${text ? ` — ${text}` : ""}`
+    : text;
+
   await setDoc(
     doc(db, "chats", outletUid),
     {
-      lastMessage: text,
+      lastMessage,
       lastMessageAt: serverTimestamp(),
       unreadByUser: true,
       unreadByAdmin: false,
@@ -78,9 +95,12 @@ export const sendAdminReply = async (outletUid, text) => {
 
   await addDoc(collection(db, "chats", outletUid, "messages"), {
     text,
+    product: cleanProduct,
     senderRole: "admin",
     createdAt: serverTimestamp(),
   });
+
+  notifyOutletChat(outletUid, lastMessage);
 };
 
 // ── Realtime listeners ────────────────────────────────

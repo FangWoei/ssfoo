@@ -129,9 +129,7 @@ export default function ChatWidget() {
         style={{ right: "1.25rem", bottom: "1.25rem" }}>
         {open ? <FiX size={22} /> : <FiMessageCircle size={24} />}
         {!open && unread && (
-          <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white dark:border-dark-950 shadow">
-            1
-          </span>
+          <span className="absolute top-0 right-0 w-3.5 h-3.5 rounded-full bg-red-500 border-2 border-white dark:border-dark-950" />
         )}
       </button>
 
@@ -216,7 +214,9 @@ export default function ChatWidget() {
                     )}
                     {m.text && (
                       <p className="px-3 py-2 whitespace-pre-wrap break-words">
-                        {m.text}
+                        {typeof m.text === "string"
+                          ? m.text
+                          : m.text?.text || ""}
                       </p>
                     )}
                   </div>
