@@ -44,7 +44,7 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 bg-white dark:bg-dark-900 border-b border-dark-100 dark:border-dark-800 shadow-sm">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-dark-900 border-b border-dark-100 dark:border-dark-800 shadow-sm">
       <div className="container-app">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -82,8 +82,8 @@ export default function Navbar() {
               {theme === "dark" ? <FiSun size={18} /> : <FiMoon size={18} />}
             </button>
 
-            {/* Notifications */}
-            <NotificationsBell />
+            {/* Notifications (admin only — outlets use chat widget) */}
+            {isAdmin && <NotificationsBell />}
 
             {/* Cart */}
             <Link

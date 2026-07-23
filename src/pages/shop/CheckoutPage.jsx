@@ -33,7 +33,10 @@ export default function CheckoutPage() {
   const outletId = outlet.outletId || user?.outletId || "";
   const outletName = outlet.outletName || outlet.name || "";
 
-  const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const subtotal = items.reduce(
+    (s, i) => s + (Number(i.price) || 0) * (Number(i.qty) || 0),
+    0,
+  );
   const totalItems = items.reduce((s, i) => s + i.qty, 0);
   const getMoq = (item) => Math.max(1, item.minOrder ?? item.moq ?? 1);
 
@@ -165,25 +168,27 @@ export default function CheckoutPage() {
             <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {items.map((item) => (
                 <div key={item.productId} className="py-3 first:pt-0 last:pb-0">
-                  <div className="flex gap-3 items-center">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                     <img
                       src={item.thumbnail || item.image || PLACEHOLDER}
                       alt={item.name}
                       onError={(e) => {
                         e.currentTarget.src = PLACEHOLDER;
                       }}
-                      className="w-12 h-12 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0"
+                      className="w-12 h-12 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0 self-start"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 break-words">
                         {item.name}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {formatPrice(item.price)} × {item.qty}
+                        {formatPrice(item.price)} × {Number(item.qty) || 0}
                       </p>
                     </div>
-                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100 shrink-0">
-                      {formatPrice(item.price * item.qty)}
+                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100 sm:shrink-0 whitespace-nowrap sm:text-right">
+                      {formatPrice(
+                        (Number(item.price) || 0) * (Number(item.qty) || 0),
+                      )}
                     </span>
                   </div>
                   <input

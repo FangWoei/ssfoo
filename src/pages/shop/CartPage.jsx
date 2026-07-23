@@ -23,8 +23,11 @@ export default function CartPage() {
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
 
-  const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-  const totalItems = items.reduce((s, i) => s + i.qty, 0);
+  const subtotal = items.reduce(
+    (s, i) => s + (Number(i.price) || 0) * (Number(i.qty) || 0),
+    0,
+  );
+  const totalItems = items.reduce((s, i) => s + (Number(i.qty) || 0), 0);
 
   const getMoq = (item) => Math.max(1, item.minOrder ?? item.moq ?? 1);
 
@@ -38,9 +41,11 @@ export default function CartPage() {
   };
 
   const handleQtyInput = (item, raw) => {
+    if (raw === "" || raw === "-") return; // allow typing
     const num = parseInt(raw, 10);
     if (isNaN(num)) return;
-    handleQty(item, num);
+    const moq = getMoq(item);
+    updateQty(item.productId, Math.max(moq, num));
   };
 
   const handleRemove = (item) => {
@@ -108,23 +113,23 @@ export default function CartPage() {
               <div
                 key={item.productId}
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <img
                     src={item.thumbnail || item.image || PLACEHOLDER}
                     alt={item.name}
                     onError={(e) => {
                       e.currentTarget.src = PLACEHOLDER;
                     }}
-                    className="w-20 h-20 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shrink-0"
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-slate-100 dark:bg-slate-800 shrink-0 self-start"
                   />
 
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0" style={{ minWidth: 0 }}>
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
+                        <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100 break-words">
                           {item.name}
                         </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-1">
                           {formatPrice(item.price)} / unit
                           {moq > 1 && (
                             <span className="ml-2 inline-block px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-[10px] font-semibold">
@@ -141,7 +146,7 @@ export default function CartPage() {
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
+                    <div className="flex items-center justify-between mt-3 flex-wrap gap-y-2 gap-x-3">
                       {/* Qty stepper */}
                       <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
                         <button
@@ -152,7 +157,7 @@ export default function CartPage() {
                         </button>
                         <input
                           type="number"
-                          value={item.qty}
+                          value={Number.isFinite(item.qty) ? item.qty : ""}
                           min={moq}
                           onChange={(e) => handleQtyInput(item, e.target.value)}
                           className="w-14 text-center text-sm font-semibold bg-transparent text-slate-900 dark:text-slate-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -177,7 +182,9 @@ export default function CartPage() {
                             </span>
                           )}
                         <span className="text-sm font-bold text-teal-700 dark:text-teal-400">
-                          {formatPrice(item.price * item.qty)}
+                          {formatPrice(
+                            (Number(item.price) || 0) * (Number(item.qty) || 0),
+                          )}
                         </span>
                       </div>
                     </div>
