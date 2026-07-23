@@ -224,7 +224,7 @@ export default function AdminDashboard() {
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                   range === r.key
                     ? "bg-primary-600 text-white"
-                    : "bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 text-dark-500 dark:text-dark-400 hover:border-primary-500"
+                    : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-primary-500 hover:text-primary-600 transition-colors"
                 }`}>
                 {r.label}
               </button>
@@ -239,7 +239,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Revenue chart ── */}
-      <div className="bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 rounded-2xl p-5">
+      <div className="bg-white dark:bg-dark-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm shadow-slate-200/40 dark:shadow-none">
         <h2 className="font-bold text-sm text-dark-900 dark:text-dark-100 mb-4">
           Revenue
         </h2>
@@ -290,7 +290,7 @@ export default function AdminDashboard() {
 
       {/* ── Top products + top outlets ── */}
       <div className="grid lg:grid-cols-2 gap-4">
-        <div className="bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 rounded-2xl p-5">
+        <div className="bg-white dark:bg-dark-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm shadow-slate-200/40 dark:shadow-none">
           <h2 className="font-bold text-sm text-dark-900 dark:text-dark-100 mb-3">
             Top Products
           </h2>
@@ -353,7 +353,7 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        <div className="bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 rounded-2xl p-5">
+        <div className="bg-white dark:bg-dark-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm shadow-slate-200/40 dark:shadow-none">
           <h2 className="font-bold text-sm text-dark-900 dark:text-dark-100 mb-3">
             Top Outlets
           </h2>
@@ -419,7 +419,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Recent orders ── */}
-      <div className="bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-800 rounded-2xl p-5">
+      <div className="bg-white dark:bg-dark-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm shadow-slate-200/40 dark:shadow-none">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-bold text-sm text-dark-900 dark:text-dark-100">
             Recent Orders

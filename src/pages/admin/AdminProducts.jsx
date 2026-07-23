@@ -318,13 +318,13 @@ export default function AdminProducts() {
               if (!products.length) return toast.error("No products yet");
               exportProductsToExcel(products);
             }}
-            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 text-sm font-semibold transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-primary-500 hover:text-primary-600 text-sm font-semibold transition-colors"
             title="Download all products as Excel — edit and re-import to update">
             <FiDownload size={15} /> Export
           </button>
           <button
             onClick={() => downloadProductTemplate(categories, brands)}
-            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 text-sm font-semibold transition-colors">
+            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-primary-500 hover:text-primary-600 text-sm font-semibold transition-colors">
             <FiDownload size={15} /> Template
           </button>
           <button
@@ -340,7 +340,7 @@ export default function AdminProducts() {
           </button>
           <Link
             to="/admin/products/new"
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-sm font-bold shadow-md shadow-primary-500/25 transition-all">
             <FiPlus size={16} /> Add Product
           </Link>
           <input
@@ -364,7 +364,7 @@ export default function AdminProducts() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by item code or name…"
-            className="w-full pl-9 pr-8 py-2 text-xs rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 focus:border-primary-500 text-dark-700 dark:text-dark-200 outline-none transition-colors"
+            className="w-full pl-9 pr-8 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-primary-500 text-slate-700 dark:text-slate-200 placeholder-slate-400 outline-none transition-colors"
           />
           {search && (
             <button
@@ -378,7 +378,7 @@ export default function AdminProducts() {
         <select
           value={catFilter}
           onChange={(e) => setCatFilter(e.target.value)}
-          className="px-3 py-2 text-xs rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none">
+          className="px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 outline-none hover:border-primary-500 focus:border-primary-500 transition-colors">
           <option value="all">All categories</option>
           {categories.map((c) => (
             <option key={c.id} value={c.name}>
@@ -390,7 +390,7 @@ export default function AdminProducts() {
         <select
           value={brandFilter}
           onChange={(e) => setBrandFilter(e.target.value)}
-          className="px-3 py-2 text-xs rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none">
+          className="px-3 py-2.5 text-xs rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 outline-none hover:border-primary-500 focus:border-primary-500 transition-colors">
           <option value="all">All brands</option>
           <option value="__none__">No brand</option>
           {brands.map((b) => (
@@ -407,8 +407,8 @@ export default function AdminProducts() {
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors ${
                 statusFilter === s
-                  ? "bg-primary-600 text-white"
-                  : "bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-500 dark:text-dark-400 hover:border-primary-500"
+                  ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-sm shadow-primary-500/25 border border-transparent"
+                  : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-primary-500 hover:text-primary-600 transition-colors"
               }`}>
               {s}
             </button>
@@ -418,7 +418,7 @@ export default function AdminProducts() {
 
       {/* ── Bulk action bar ── */}
       {selected.length > 0 && (
-        <div className="flex items-center justify-between bg-primary-600 text-white rounded-xl px-4 py-2.5">
+        <div className="flex items-center justify-between bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-2xl px-4 py-3 shadow-md shadow-primary-500/25">
           <span className="text-sm font-semibold">
             {selected.length} selected
           </span>
@@ -460,7 +460,7 @@ export default function AdminProducts() {
         onPageSizeChange={setPageSize}
       />
 
-      <div className="bg-white dark:bg-dark-900 rounded-2xl border border-dark-100 dark:border-dark-800 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm shadow-slate-200/40 dark:shadow-none">
         {filtered.length === 0 ? (
           <p className="text-sm text-dark-400 text-center py-14">
             No products found
@@ -692,7 +692,7 @@ export default function AdminProducts() {
               <button
                 onClick={confirmImport}
                 disabled={importing || importResult.valid.length === 0}
-                className="flex-1 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60">
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-sm font-bold shadow-md shadow-primary-500/25 flex items-center justify-center gap-2 disabled:opacity-60 transition-all">
                 {importing ? (
                   <>
                     <FiLoader size={15} className="animate-spin" /> Importing…
