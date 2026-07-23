@@ -620,15 +620,15 @@ export default function AdminProductForm() {
               onDragOver={handleImgDragOver(idx)}
               onDrop={handleImgDrop(idx)}
               onDragEnd={handleImgDragEnd}
-              className={`relative group aspect-square cursor-grab active:cursor-grabbing ${
+              onClick={() => setPreviewImg(url)}
+              title="Drag to reorder · click to enlarge"
+              className={`relative group aspect-square cursor-grab active:cursor-grabbing cursor-zoom-in ${
                 dragIdx === idx ? "opacity-40" : ""
               }`}>
               <img
                 src={url}
                 alt=""
-                onClick={() => setPreviewImg(url)}
-                title="Drag to reorder · click to enlarge"
-                className="w-full h-full rounded-xl object-contain bg-white border border-dark-100 dark:border-dark-700 cursor-zoom-in pointer-events-none"
+                className="w-full h-full rounded-xl object-contain bg-white border border-dark-100 dark:border-dark-700 pointer-events-none"
               />
               {idx === 0 && (
                 <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-primary-600 text-white text-[9px] font-bold">
@@ -636,7 +636,10 @@ export default function AdminProductForm() {
                 </span>
               )}
               <button
-                onClick={() => removeImage(idx)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeImage(idx);
+                }}
                 className="absolute top-1 right-1 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all">
                 <FiTrash2 size={12} />
               </button>
