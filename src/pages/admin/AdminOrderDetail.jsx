@@ -130,7 +130,7 @@ export default function AdminOrderDetail() {
             💬 WhatsApp
           </button>
           <button
-            onClick={() => exportOrderClientFormat(order)}
+            onClick={() => exportOrderClientFormat(order, outlet)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 transition-colors">
             <FiDownload size={15} /> Excel
           </button>

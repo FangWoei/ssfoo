@@ -83,7 +83,7 @@ export default function OrderDetail() {
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Link
             to="/orders"
-            className="p-2 rounded-lg text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors shrink-0"
+            className="p-2 rounded-xl text-slate-500 hover:text-primary-600 hover:bg-[#FFF7EE] dark:hover:bg-primary-900/20 transition-colors shrink-0"
             title="Back to orders">
             <FiArrowLeft size={18} />
           </Link>
@@ -143,18 +143,18 @@ export default function OrderDetail() {
               }
             }}
             disabled={reordering}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 disabled:opacity-60 text-white shadow-md shadow-primary-500/25 transition-all">
             <FiRepeat size={15} className={reordering ? "animate-spin" : ""} />
             Order Again
           </button>
           <button
             onClick={() => shareOrderWhatsApp(order)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-500 transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-[#FFE8D6] dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-primary-500 hover:bg-[#FFF7EE] transition-colors">
             <FiShare2 size={15} /> WhatsApp
           </button>
           <button
             onClick={() => printOrderPDF(order, { forAdmin: false })}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-500 transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-[#FFE8D6] dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-primary-500 hover:bg-[#FFF7EE] transition-colors">
             <FiPrinter size={15} /> PDF
           </button>
         </div>
@@ -162,7 +162,7 @@ export default function OrderDetail() {
 
       <div className="grid lg:grid-cols-[1fr_300px] gap-5 items-start">
         {/* ── Items ── */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+        <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
           <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-4">
             Items ({items.length})
           </h2>
@@ -176,9 +176,9 @@ export default function OrderDetail() {
                     onError={(e) => {
                       e.currentTarget.src = PLACEHOLDER;
                     }}
-                    className="w-12 h-12 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0"
+                    className="w-12 h-12 rounded-lg object-cover bg-slate-100 dark:bg-slate-800 shrink-0 self-start"
                   />
-                  <div className="flex-1 min-w-0" style={{ minWidth: 0 }}>
+                  <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 break-words">
                       {item.name}
                     </p>
@@ -192,7 +192,7 @@ export default function OrderDetail() {
                       )}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100 sm:shrink-0 whitespace-nowrap sm:text-right">
+                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100 shrink-0">
                     {formatPrice(
                       (Number(item.price) || 0) * (Number(item.qty) || 0),
                     )}
@@ -211,7 +211,7 @@ export default function OrderDetail() {
         {/* ── Side: remarks + summary ── */}
         <div className="space-y-4">
           {order.remarks?.trim() && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+            <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
               <div className="flex items-center gap-2 mb-2">
                 <FiFileText
                   size={15}
@@ -227,7 +227,7 @@ export default function OrderDetail() {
             </div>
           )}
 
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+          <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
             <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-3">
               Summary
             </h2>

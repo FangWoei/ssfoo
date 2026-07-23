@@ -226,7 +226,7 @@ export const exportSingleOrderToExcel = (order, outlet = null) => {
 // Matches the client's accounting template exactly:
 // A ItemCode · B Description · C Qty · D FOC · E UOM · F UnitPrice
 // Columns G–Q keep their headers but stay empty.
-export const exportOrderClientFormat = (order) => {
+export const exportOrderClientFormat = (order, outlet = null) => {
   const items = order.items || [];
 
   const HEADERS = [
@@ -269,7 +269,22 @@ export const exportOrderClientFormat = (order) => {
     "",
   ]);
 
-  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
+  // Outlet info rows at the top
+  const outletName =
+    outlet?.outletName || order.outletName || outlet?.name || "";
+  const outletAddress = outlet?.address || "";
+  const outletPhone = outlet?.phone || "";
+  const outletId = order.outletId || outlet?.outletId || "";
+
+  const infoRows = [
+    ["Outlet:", outletName],
+    ["Address:", outletAddress],
+    ...(outletPhone ? [["Phone:", outletPhone]] : []),
+    ...(outletId ? [["Outlet ID:", outletId]] : []),
+    [], // blank spacer row
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet([...infoRows, HEADERS, ...rows]);
   ws["!cols"] = [
     { wch: 10 },
     { wch: 45 },

@@ -127,7 +127,7 @@ export default function CheckoutPage() {
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
         <div className="space-y-4">
           {/* ── Outlet info ── */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+          <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
             <div className="flex items-center gap-2 mb-3">
               <FiHome size={16} className="text-teal-600 dark:text-teal-400" />
               <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100">
@@ -161,7 +161,7 @@ export default function CheckoutPage() {
           </div>
 
           {/* ── Items review ── */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+          <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
             <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-4">
               Items ({items.length})
             </h2>
@@ -195,7 +195,7 @@ export default function CheckoutPage() {
                     value={item.note || ""}
                     onChange={(e) => updateNote(item.productId, e.target.value)}
                     placeholder="📝 Note for this item (optional)…"
-                    className="mt-1.5 w-full text-xs rounded-lg px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-teal-500 text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none transition-colors"
+                    className="mt-1.5 w-full text-xs rounded-lg px-3 py-2 bg-[#FFF7EE] dark:bg-slate-800 border border-transparent focus:border-primary-500 focus:bg-white text-slate-800 dark:text-slate-200 placeholder-slate-400 outline-none transition-colors"
                     style={{ minWidth: 0 }}
                   />
                 </div>
@@ -203,13 +203,13 @@ export default function CheckoutPage() {
             </div>
             <Link
               to="/cart"
-              className="inline-block mt-3 text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline">
+              className="inline-block mt-3 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-700 hover:underline">
               ← Back to cart (change quantities)
             </Link>
           </div>
 
           {/* ── Order remarks ── */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+          <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
             <div className="flex items-center gap-2 mb-3">
               <FiFileText
                 size={16}
@@ -226,7 +226,7 @@ export default function CheckoutPage() {
               maxLength={500}
               rows={3}
               placeholder="Anything the admin should know about this order — delivery timing, invoicing, etc."
-              className="w-full px-3 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-transparent focus:border-teal-500 text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none resize-none transition-colors"
+              className="w-full px-3.5 py-3 text-sm rounded-2xl bg-[#FFF7EE] dark:bg-slate-800 border border-transparent focus:border-primary-500 focus:bg-white text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none resize-none transition-all"
             />
             <p className="text-right text-[11px] text-slate-400 mt-1">
               {remarks.length}/500
@@ -235,7 +235,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* ── Summary / place order ── */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 lg:sticky lg:top-24">
+        <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5 lg:sticky lg:top-24">
           <h2 className="font-bold text-slate-900 dark:text-slate-100 mb-4">
             Summary
           </h2>
@@ -259,7 +259,7 @@ export default function CheckoutPage() {
           <button
             onClick={handlePlaceOrder}
             disabled={placing}
-            className="w-full mt-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+            className="w-full mt-5 py-3.5 rounded-2xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold flex items-center justify-center gap-2 shadow-md shadow-primary-500/25 transition-all">
             {placing ? (
               <>
                 <FiLoader size={15} className="animate-spin" /> Placing order…
@@ -271,8 +271,7 @@ export default function CheckoutPage() {
             )}
           </button>
           <p className="text-[11px] text-slate-400 text-center mt-3 leading-relaxed">
-            Stock will be reserved when the order is placed. The admin will
-            confirm and process it.
+            We'll contact you shortly to confirm availability and delivery.
           </p>
         </div>
       </div>
