@@ -67,6 +67,7 @@ export default function AdminProductForm() {
   const [uomModal, setUomModal] = useState(false);
   const [newUom, setNewUom] = useState("");
   const [savingUom, setSavingUom] = useState(false);
+  const [dragIdx, setDragIdx] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -241,6 +242,32 @@ export default function AdminProductForm() {
 
   const removeImage = (idx) =>
     setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
+
+  // ── Drag-to-reorder images (mouse drag, e.g. pull last photo to front to make it MAIN) ──
+  const handleImgDragStart = (idx) => (e) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleImgDragOver = (idx) => (e) => {
+    e.preventDefault(); // required to allow a drop
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleImgDrop = (idx) => (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // don't let it bubble to the upload dropzone's onDrop
+    if (dragIdx === null || dragIdx === idx) return;
+    setForm((f) => {
+      const imgs = [...f.images];
+      const [moved] = imgs.splice(dragIdx, 1);
+      imgs.splice(idx, 0, moved);
+      return { ...f, images: imgs };
+    });
+    setDragIdx(null);
+  };
+
+  const handleImgDragEnd = () => setDragIdx(null);
 
   const handleAddUom = async (rawName) => {
     const name = (rawName ?? newUom).trim().toUpperCase();
@@ -586,13 +613,22 @@ export default function AdminProductForm() {
 
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
           {form.images.map((url, idx) => (
-            <div key={idx} className="relative group aspect-square">
+            <div
+              key={url + idx}
+              draggable
+              onDragStart={handleImgDragStart(idx)}
+              onDragOver={handleImgDragOver(idx)}
+              onDrop={handleImgDrop(idx)}
+              onDragEnd={handleImgDragEnd}
+              className={`relative group aspect-square cursor-grab active:cursor-grabbing ${
+                dragIdx === idx ? "opacity-40" : ""
+              }`}>
               <img
                 src={url}
                 alt=""
                 onClick={() => setPreviewImg(url)}
-                title="Click to enlarge"
-                className="w-full h-full rounded-xl object-contain bg-white border border-dark-100 dark:border-dark-700 cursor-zoom-in"
+                title="Drag to reorder · click to enlarge"
+                className="w-full h-full rounded-xl object-contain bg-white border border-dark-100 dark:border-dark-700 cursor-zoom-in pointer-events-none"
               />
               {idx === 0 && (
                 <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-primary-600 text-white text-[9px] font-bold">
@@ -678,7 +714,9 @@ export default function AdminProductForm() {
             </div>
             <p className="text-[11px] text-dark-400 mt-1.5">
               💡 Tip: right-click any image online → <b>Copy image</b> → press{" "}
-              <b>Ctrl+V</b> here, or drag the image onto the upload box.
+              <b>Ctrl+V</b> here, or drag the image onto the upload box. Drag a
+              photo onto another to reorder — the first one is the shop
+              thumbnail (MAIN).
             </p>
           </div>
         )}
