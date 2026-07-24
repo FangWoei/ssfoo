@@ -189,17 +189,24 @@ export default function ShopPage() {
       return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
     });
 
-  // Reset page to 1 when filters change — but skip the initial mount
-  // (otherwise coming back from cart would wipe the persisted page).
-  // Same reason we don't clear scroll here.
-  const firstFilterRun = useRef(true);
+  // Reset page to 1 when filters ACTUALLY change (not just re-mount, not
+  // StrictMode's double-effect). Compare a fingerprint of current filter
+  // values against the last known one — only reset if truly different.
+  const lastFilterFingerprint = useRef(
+    JSON.stringify([search, category, brandFilter, sortBy, pageSize]),
+  );
   useEffect(() => {
-    if (firstFilterRun.current) {
-      firstFilterRun.current = false;
-      return;
-    }
+    const now = JSON.stringify([
+      search,
+      category,
+      brandFilter,
+      sortBy,
+      pageSize,
+    ]);
+    if (now === lastFilterFingerprint.current) return;
+    lastFilterFingerprint.current = now;
     setPage(1);
-  }, [search, category, brandFilter, sortBy, pageSize, visibleBrands.length]);
+  }, [search, category, brandFilter, sortBy, pageSize]);
 
   const totalFiltered = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
