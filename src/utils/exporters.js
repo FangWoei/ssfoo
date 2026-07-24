@@ -104,15 +104,17 @@ export const printOrderPDF = (
 
   const contactBlock = forAdmin
     ? `<div class="meta">
-         <strong>${escapeHtml(order.outletName || order.outletId || "")}</strong><br/>
-         ${escapeHtml(order.outletId || "")}<br/>
+         <div class="meta-label">Bill To</div>
+         ${order.outletName ? `<span class="mono">Outlet Name: ${escapeHtml(order.outletName)}</span><br/>` : ""}
+         ${order.outletId ? `<span class="mono">Outlet ID: ${escapeHtml(order.outletId)}</span><br/>` : ""}
          ${outlet?.email ? escapeHtml(outlet.email) + "<br/>" : ""}
          ${outlet?.phone ? escapeHtml(outlet.phone) + "<br/>" : ""}
          ${outlet?.address ? escapeHtml(outlet.address) : ""}
        </div>`
     : `<div class="meta">
-         <strong>${escapeHtml(order.outletName || order.outletId || "")}</strong><br/>
-         ${escapeHtml(order.outletId || "")}
+         <div class="meta-label">Outlet</div>
+         <strong>${escapeHtml(order.outletName || "—")}</strong><br/>
+         ${order.outletId ? `<span class="mono">ID: ${escapeHtml(order.outletId)}</span>` : ""}
        </div>`;
 
   const html = `<!doctype html><html><head><meta charset="utf-8"/>
@@ -133,6 +135,8 @@ export const printOrderPDF = (
     td.c, th.c { text-align: center; }
     td.code { font-family: monospace; font-weight: bold; color: #0f766e; }
     tr.note td { color: #0d9488; font-style: italic; border-bottom: 1px solid #e2e8f0; }
+    .meta-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; font-weight: 700; }
+    .mono { font-family: "Courier New", monospace; font-size: 12px; color: #0f766e; font-weight: bold; }
     .total { margin-top: 16px; text-align: right; font-size: 14px; }
     .total b { color: #0d9488; font-size: 20px; }
     .remarks { margin-top: 20px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 12px; }
@@ -226,7 +230,7 @@ export const exportSingleOrderToExcel = (order, outlet = null) => {
 // Matches the client's accounting template exactly:
 // A ItemCode · B Description · C Qty · D FOC · E UOM · F UnitPrice
 // Columns G–Q keep their headers but stay empty.
-export const exportOrderClientFormat = (order, outlet = null) => {
+export const exportOrderClientFormat = (order) => {
   const items = order.items || [];
 
   const HEADERS = [
@@ -269,22 +273,7 @@ export const exportOrderClientFormat = (order, outlet = null) => {
     "",
   ]);
 
-  // Outlet info rows at the top
-  const outletName =
-    outlet?.outletName || order.outletName || outlet?.name || "";
-  const outletAddress = outlet?.address || "";
-  const outletPhone = outlet?.phone || "";
-  const outletId = order.outletId || outlet?.outletId || "";
-
-  const infoRows = [
-    ["Outlet:", outletName],
-    ["Address:", outletAddress],
-    ...(outletPhone ? [["Phone:", outletPhone]] : []),
-    ...(outletId ? [["Outlet ID:", outletId]] : []),
-    [], // blank spacer row
-  ];
-
-  const ws = XLSX.utils.aoa_to_sheet([...infoRows, HEADERS, ...rows]);
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
   ws["!cols"] = [
     { wch: 10 },
     { wch: 45 },

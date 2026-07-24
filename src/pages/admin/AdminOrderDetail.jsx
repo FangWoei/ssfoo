@@ -130,7 +130,7 @@ export default function AdminOrderDetail() {
             💬 WhatsApp
           </button>
           <button
-            onClick={() => exportOrderClientFormat(order, outlet)}
+            onClick={() => exportOrderClientFormat(order)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 hover:border-primary-500 transition-colors">
             <FiDownload size={15} /> Excel
           </button>
@@ -217,17 +217,17 @@ export default function AdminOrderDetail() {
             <div className="divide-y divide-dark-100 dark:divide-dark-800">
               {items.map((item, idx) => (
                 <div key={idx} className="py-3 first:pt-0 last:pb-0">
-                  <div className="flex gap-3 items-center">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                     <img
                       src={item.image || PLACEHOLDER}
                       alt={item.name}
                       onError={(e) => {
                         e.currentTarget.src = PLACEHOLDER;
                       }}
-                      className="w-12 h-12 rounded-lg object-cover bg-dark-100 dark:bg-dark-800 shrink-0"
+                      className="w-12 h-12 rounded-lg object-cover bg-dark-100 dark:bg-dark-800 shrink-0 self-start"
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-dark-900 dark:text-dark-100 truncate">
+                      <p className="text-sm font-semibold text-dark-900 dark:text-dark-100 break-words">
                         {item.itemCode && (
                           <span className="font-mono text-primary-600 dark:text-primary-400 mr-1.5">
                             {item.itemCode}
@@ -236,7 +236,7 @@ export default function AdminOrderDetail() {
                         {item.name}
                       </p>
                       <p className="text-xs text-dark-400">
-                        {formatPrice(item.price)} × {item.qty}
+                        {formatPrice(item.price)} × {Number(item.qty) || 0}
                         {item.uom ? ` ${item.uom}` : ""}
                         {item.foc > 0 && (
                           <span className="ml-1.5 font-bold text-primary-600 dark:text-primary-400">
@@ -245,8 +245,10 @@ export default function AdminOrderDetail() {
                         )}
                       </p>
                     </div>
-                    <span className="text-sm font-bold text-dark-900 dark:text-dark-100 shrink-0">
-                      {formatPrice(item.price * item.qty)}
+                    <span className="text-sm font-bold text-dark-900 dark:text-dark-100 sm:shrink-0 whitespace-nowrap sm:text-right">
+                      {formatPrice(
+                        (Number(item.price) || 0) * (Number(item.qty) || 0),
+                      )}
                     </span>
                   </div>
                   {item.note?.trim() && (
@@ -284,18 +286,18 @@ export default function AdminOrderDetail() {
               Summary
             </h2>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between text-dark-400">
+              <div className="flex justify-between gap-3 flex-wrap text-dark-400">
                 <span>Products</span>
                 <span>{items.length}</span>
               </div>
-              <div className="flex justify-between text-dark-400">
+              <div className="flex justify-between gap-3 flex-wrap text-dark-400">
                 <span>Total units</span>
                 <span>
                   {order.totalItems ??
                     items.reduce((n, i) => n + (i.qty || 0), 0)}
                 </span>
               </div>
-              <div className="border-t border-dark-100 dark:border-dark-800 pt-2.5 flex justify-between font-bold text-dark-900 dark:text-dark-100">
+              <div className="border-t border-dark-100 dark:border-dark-800 pt-2.5 flex justify-between gap-3 flex-wrap font-bold text-dark-900 dark:text-dark-100">
                 <span>Total</span>
                 <span className="text-primary-700 dark:text-primary-400">
                   {formatPrice(order.total ?? subtotal)}

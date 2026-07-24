@@ -7,7 +7,7 @@ import { getAllProducts, getCategories } from "@/firebase/products";
 import usePersistedState from "@/hooks/usePersistedState";
 import { formatPrice, truncate } from "@/utils/helpers";
 import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import {
@@ -79,7 +79,7 @@ export default function ShopPage() {
     "shop-size",
     DEFAULT_PAGE_SIZE,
   );
-  const [page, setPage] = useState(1);
+  const [page, setPage] = usePersistedState("shop-page", 1);
   const [modal, setModal] = useState(null); // product | null
   const [refreshing, setRefreshing] = useState(false);
 
@@ -104,6 +104,47 @@ export default function ShopPage() {
       }
     })();
   }, []);
+
+  // ── Preserve scroll position across navigations ──
+  // When outlet clicks into a product / cart / order, then hits back,
+  // they land exactly where they were — no re-scrolling from the top.
+  // Uses sessionStorage (wipes on tab close, so next session starts fresh).
+  useEffect(() => {
+    if (loading || products.length === 0) return;
+    const y = Number(sessionStorage.getItem("shop-scroll") || 0);
+    if (y > 0) {
+      // Wait 2 paint frames for the grid to settle before scrolling
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => {
+          window.scrollTo(0, y);
+        });
+        return () => cancelAnimationFrame(raf2);
+      });
+      return () => cancelAnimationFrame(raf1);
+    }
+  }, [loading, products.length]);
+
+  // Save scroll on every scroll — but ignore the first ~800ms after mount.
+  // The browser resets scroll to 0 during route change and fires a bogus
+  // scroll event; without this guard we'd overwrite the saved value with 0
+  // right at the moment we're supposed to restore it.
+  useEffect(() => {
+    const mountedAt = Date.now();
+    const onScroll = () => {
+      if (Date.now() - mountedAt < 800) return; // ignore reset noise
+      const y = window.scrollY;
+      if (y > 0) {
+        sessionStorage.setItem("shop-scroll", String(y));
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const clearShopScroll = () => {
+    sessionStorage.removeItem("shop-scroll");
+    sessionStorage.removeItem("shop-page");
+  };
 
   const doRefresh = async () => {
     setRefreshing(true);
@@ -148,7 +189,15 @@ export default function ShopPage() {
       return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
     });
 
+  // Reset page to 1 when filters change — but skip the initial mount
+  // (otherwise coming back from cart would wipe the persisted page).
+  // Same reason we don't clear scroll here.
+  const firstFilterRun = useRef(true);
   useEffect(() => {
+    if (firstFilterRun.current) {
+      firstFilterRun.current = false;
+      return;
+    }
     setPage(1);
   }, [search, category, brandFilter, sortBy, pageSize, visibleBrands.length]);
 
@@ -200,7 +249,7 @@ export default function ShopPage() {
   };
 
   return (
-    <div className="rounded-3xl bg-gradient-to-br from-[#FFF9F5] via-[#FFF5F0] to-[#F0FBF8] dark:from-transparent dark:via-transparent dark:to-transparent -mx-4 md:-mx-6 -my-6 px-4 md:px-6 py-6 min-h-full space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center justify-between gap-3">
@@ -234,7 +283,10 @@ export default function ShopPage() {
           />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              clearShopScroll();
+            }}
             placeholder="Search products…"
             className="input pl-10 pr-10 dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100 dark:placeholder-dark-500"
           />
@@ -257,8 +309,11 @@ export default function ShopPage() {
             style={{ flexWrap: "wrap", gap: "0.5rem" }}>
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="px-3 py-2 text-sm rounded-xl bg-white/80 dark:bg-dark-900/60 backdrop-blur-md border border-white dark:border-dark-700 shadow-sm text-dark-700 dark:text-dark-200 outline-none"
+              onChange={(e) => {
+                setCategory(e.target.value);
+                clearShopScroll();
+              }}
+              className="px-3 py-2 text-sm rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none"
               style={{ flex: "1 1 150px", minWidth: 0 }}>
               <option value="all">All categories</option>
               {categories.map((c) => (
@@ -270,8 +325,11 @@ export default function ShopPage() {
             {visibleBrands.length >= 2 && (
               <select
                 value={brandFilter}
-                onChange={(e) => setBrandFilter(e.target.value)}
-                className="px-3 py-2 text-sm rounded-xl bg-white/80 dark:bg-dark-900/60 backdrop-blur-md border border-white dark:border-dark-700 shadow-sm text-dark-700 dark:text-dark-200 outline-none"
+                onChange={(e) => {
+                  setBrandFilter(e.target.value);
+                  clearShopScroll();
+                }}
+                className="px-3 py-2 text-sm rounded-xl bg-white dark:bg-dark-900 border border-dark-100 dark:border-dark-700 text-dark-700 dark:text-dark-200 outline-none"
                 style={{ flex: "1 1 150px", minWidth: 0 }}>
                 <option value="all">All brands</option>
                 {visibleBrands.map((b) => (
@@ -287,7 +345,10 @@ export default function ShopPage() {
             className="flex items-center"
             style={{ flexWrap: "wrap", gap: "0.5rem" }}>
             <button
-              onClick={() => setCategory("all")}
+              onClick={() => {
+                setCategory("all");
+                clearShopScroll();
+              }}
               className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 category === "all"
                   ? "bg-primary-600 text-white"
@@ -298,7 +359,10 @@ export default function ShopPage() {
             {categories.map((c) => (
               <button
                 key={c.id}
-                onClick={() => setCategory(c.name)}
+                onClick={() => {
+                  setCategory(c.name);
+                  clearShopScroll();
+                }}
                 className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   category === c.name
                     ? "bg-primary-600 text-white"
@@ -313,7 +377,10 @@ export default function ShopPage() {
         <div className="flex items-center justify-end gap-2">
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={(e) => {
+              setSortBy(e.target.value);
+              clearShopScroll();
+            }}
             className="input py-1.5 text-sm w-auto dark:bg-dark-800 dark:border-dark-700 dark:text-dark-100">
             <option value="createdAt_desc">Newest</option>
             <option value="price_asc">Price: Low–High</option>
@@ -332,7 +399,10 @@ export default function ShopPage() {
             Brand
           </span>
           <button
-            onClick={() => setBrandFilter("all")}
+            onClick={() => {
+              setBrandFilter("all");
+              clearShopScroll();
+            }}
             className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
               brandFilter === "all"
                 ? "bg-dark-900 dark:bg-dark-100 text-white dark:text-dark-900"
@@ -343,7 +413,10 @@ export default function ShopPage() {
           {visibleBrands.map((b) => (
             <button
               key={b}
-              onClick={() => setBrandFilter(b)}
+              onClick={() => {
+                setBrandFilter(b);
+                clearShopScroll();
+              }}
               className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 brandFilter === b
                   ? "bg-dark-900 dark:bg-dark-100 text-white dark:text-dark-900"
@@ -524,7 +597,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
   };
 
   return (
-    <div className="bg-white dark:bg-dark-900 rounded-3xl border border-white dark:border-dark-800 overflow-hidden group hover:shadow-xl hover:shadow-primary-500/15 hover:-translate-y-0.5 dark:hover:border-primary-800 transition-all duration-300 flex flex-col shadow-md shadow-primary-500/5">
+    <div className="card dark:bg-dark-900 dark:border-dark-800 overflow-hidden group hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all duration-200 flex flex-col">
       {/* Image */}
       <div
         onClick={onInfo}
@@ -550,7 +623,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
         {/* Info button */}
         <button
           onClick={onInfo}
-          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/95 dark:bg-dark-800/95 backdrop-blur flex items-center justify-center text-dark-500 hover:text-primary-600 hover:scale-110 shadow-md transition-all">
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 dark:bg-dark-800/90 flex items-center justify-center text-dark-500 hover:text-primary-600 shadow transition-colors">
           <FiInfo size={13} />
         </button>
         {/* Promo ribbon */}
@@ -562,7 +635,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
         {/* Cart badge */}
         {cartItem && (
           <div
-            className={`absolute ${isOnPromo(product) ? "top-9" : "top-2"} left-2 bg-primary-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow`}>
+            className={`absolute ${isOnPromo(product) ? "top-9" : "top-2"} left-2 bg-dark-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
             {cartItem.qty} in cart
           </div>
         )}
@@ -597,7 +670,7 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
             </p>
           )}
           {min > 1 && (
-            <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 rounded-full self-start">
+            <p className="text-[11px] text-amber-600 dark:text-amber-400">
               Min: {min} {product.uom || "units"}
             </p>
           )}

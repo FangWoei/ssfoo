@@ -197,12 +197,7 @@ export default function AdminChats() {
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
                           }}>
-                          {typeof c.lastMessage === "string"
-                            ? c.lastMessage
-                            : c.lastMessage?.text ||
-                              (c.lastMessage?.product
-                                ? `📦 ${c.lastMessage.product.itemCode || c.lastMessage.product.name || "Product"}`
-                                : "")}
+                          {c.lastMessage}
                         </p>
                         {c.unreadByAdmin && (
                           <span className="w-2 h-2 rounded-full bg-primary-600 shrink-0" />
@@ -305,9 +300,7 @@ export default function AdminChats() {
                         )}
                         {m.text && (
                           <p className="px-3 py-2 whitespace-pre-wrap break-words">
-                            {typeof m.text === "string"
-                              ? m.text
-                              : m.text?.text || ""}
+                            {m.text}
                           </p>
                         )}
                       </div>
