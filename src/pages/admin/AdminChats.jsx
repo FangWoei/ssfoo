@@ -129,10 +129,8 @@ export default function AdminChats() {
         }}>
         {/* ── Thread list ── */}
         <div
-          className={`${selected ? "hidden md:flex" : "flex"} flex-col border-r border-dark-100 dark:border-dark-800`}
+          className={`${selected ? "hidden md:flex" : "flex"} flex-col border-r border-dark-100 dark:border-dark-800 w-full md:max-w-[320px]`}
           style={{
-            width: "100%",
-            maxWidth: "320px",
             minWidth: 0,
             flex: "0 0 auto",
           }}>
