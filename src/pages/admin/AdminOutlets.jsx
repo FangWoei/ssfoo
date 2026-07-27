@@ -68,7 +68,8 @@ export default function AdminOutlets() {
       (o) =>
         o.outletId?.toLowerCase().includes(q) ||
         o.outletName?.toLowerCase().includes(q) ||
-        o.email?.toLowerCase().includes(q),
+        o.email?.toLowerCase().includes(q) ||
+        o.phone?.toLowerCase().includes(q)
     );
   }, [outlets, search]);
 
@@ -111,7 +112,15 @@ export default function AdminOutlets() {
     if (!form.outletId.trim()) return toast.error("Outlet ID is required");
     if (!form.outletName.trim()) return toast.error("Outlet name is required");
     if (isCreate) {
-      if (!isValidEmail(form.email)) return toast.error("Enter a valid email");
+      // Need email OR phone (at least one) for login
+      const hasEmail = form.email.trim() && isValidEmail(form.email);
+      const hasPhone = form.phone.trim();
+      if (!hasEmail && !hasPhone) {
+        return toast.error("Enter either an email or a phone number");
+      }
+      if (form.email.trim() && !isValidEmail(form.email)) {
+        return toast.error("Email is not valid");
+      }
       if (form.password.length < 6)
         return toast.error("Password must be at least 6 characters");
       const dupId = outlets.some(
@@ -345,13 +354,18 @@ export default function AdminOutlets() {
             <div className="space-y-3">
               {modal.mode === "create" ? (
                 <>
+                  <p className="text-xs text-dark-500 dark:text-dark-400 bg-primary-50 dark:bg-primary-900/20 px-3 py-2 rounded-lg">
+                    ℹ️ Fill in <b>email</b> or <b>phone</b> below (or both). The
+                    outlet can log in with whichever you provide.
+                  </p>
                   <div>
-                    <label className={labelCls}>Login email *</label>
+                    <label className={labelCls}>Email</label>
                     <input
                       type="email"
                       value={form.email}
                       onChange={set("email")}
                       className={inputCls}
+                      placeholder="e.g. outlet@example.com"
                     />
                   </div>
                   <div>
@@ -369,7 +383,7 @@ export default function AdminOutlets() {
                 </>
               ) : (
                 <div>
-                  <label className={labelCls}>Login email</label>
+                  <label className={labelCls}>Email</label>
                   <input
                     value={form.email}
                     disabled
@@ -401,9 +415,12 @@ export default function AdminOutlets() {
               <div>
                 <label className={labelCls}>Phone</label>
                 <input
+                  type="tel"
+                  inputMode="tel"
                   value={form.phone}
                   onChange={set("phone")}
                   className={inputCls}
+                  placeholder="e.g. 012-345 6789"
                 />
               </div>
               <div>

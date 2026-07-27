@@ -1,4 +1,5 @@
 // src/firebase/outlets.js
+import { normalizePhone, phoneToPseudoEmail } from "@/utils/phone";
 import { deleteApp, initializeApp } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
@@ -31,6 +32,22 @@ export const createOutlet = async ({
   address,
   allowedBrands = [],
 }) => {
+  // Normalize phone if provided
+  const normalizedPhone = phone ? normalizePhone(phone) : "";
+
+  // Figure out which credential to use for Firebase Auth.
+  // Priority: real email if given, otherwise pseudo-email from phone.
+  const hasRealEmail = email && email.trim() && !email.endsWith("@ssfoo.phone");
+  const authEmail = hasRealEmail
+    ? email.trim()
+    : normalizedPhone
+      ? phoneToPseudoEmail(normalizedPhone)
+      : null;
+
+  if (!authEmail) {
+    throw new Error("Either email or phone is required");
+  }
+
   const secondaryApp = initializeApp(firebaseConfig, "outlet-creator");
   const secondaryAuth = getAuth(secondaryApp);
 
@@ -38,18 +55,21 @@ export const createOutlet = async ({
     // 1. Create Firebase Auth account on the secondary app
     const credential = await createUserWithEmailAndPassword(
       secondaryAuth,
-      email,
+      authEmail,
       password,
     );
     const uid = credential.user.uid;
 
-    // 2. Save profile to Firestore (main app — admin is still signed in)
+    // 2. Save profile to Firestore (main app — admin is still signed in).
+    //    Store the REAL email if given (empty otherwise), plus the phone.
+    //    We NEVER store the pseudo-email in this field — that's an
+    //    implementation detail only Firebase Auth sees.
     await setDoc(doc(db, "users", uid), {
       uid,
-      email,
+      email: hasRealEmail ? email.trim() : "",
+      phone: normalizedPhone,
       outletId,
       outletName,
-      phone: phone || "",
       address: address || "",
       allowedBrands,
       role: "outlet",

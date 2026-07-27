@@ -1,4 +1,5 @@
 // src/firebase/auth.js
+import { normalizePhone, phoneToPseudoEmail } from "@/utils/phone";
 import {
   EmailAuthProvider,
   onAuthStateChanged,
@@ -40,3 +41,12 @@ export const changePassword = async (currentPassword, newPassword) => {
 
 // ── Auth State Listener ───────────────────────────────
 export const onAuthChange = (callback) => onAuthStateChanged(auth, callback);
+
+// ── Login by phone (Malaysian phone number → pseudo-email under the hood) ──
+export const loginUserByPhone = async (phone, password) => {
+  const normalized = normalizePhone(phone);
+  if (!normalized) throw new Error("Invalid phone number");
+  const pseudo = phoneToPseudoEmail(normalized);
+  const credential = await signInWithEmailAndPassword(auth, pseudo, password);
+  return credential.user;
+};
