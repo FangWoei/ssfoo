@@ -19,20 +19,38 @@ import {
   FiShoppingBag,
   FiSun,
   FiTag,
+  FiUser,
 } from "react-icons/fi";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
-const NAV = [
-  { to: "/admin", label: "Dashboard", icon: FiGrid, end: true },
-  { to: "/admin/products", label: "Products", icon: FiBox },
+const NAV_FULL = [
+  {
+    to: "/admin",
+    label: "Dashboard",
+    icon: FiGrid,
+    end: true,
+    adminOnly: true,
+  },
+  { to: "/admin/products", label: "Products", icon: FiBox, adminOnly: true },
   { to: "/admin/orders", label: "Orders", icon: FiShoppingBag },
-  { to: "/admin/outlets", label: "Outlets", icon: FiHome },
-  { to: "/admin/categories", label: "Categories & Brands", icon: FiTag },
-  { to: "/admin/chats", label: "Chats", icon: FiMessageCircle },
+  { to: "/admin/outlets", label: "Outlets", icon: FiHome, adminOnly: true },
+  { to: "/admin/editors", label: "Editors", icon: FiUser, adminOnly: true },
+  {
+    to: "/admin/categories",
+    label: "Categories & Brands",
+    icon: FiTag,
+    adminOnly: true,
+  },
+  {
+    to: "/admin/chats",
+    label: "Chats",
+    icon: FiMessageCircle,
+    adminOnly: true,
+  },
 ];
 
 export default function AdminLayout() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isEditor } = useAuth();
   const [chatUnread, setChatUnread] = useState(0);
 
   useEffect(() => {
@@ -60,52 +78,56 @@ export default function AdminLayout() {
         <span className="text-lg font-display font-bold text-primary-600">
           Ssfoo
         </span>
-        <div className="text-[10px] bg-gradient-to-r from-primary-500/15 to-teal-500/10 text-primary-700 dark:text-primary-400 px-2.5 py-0.5 rounded-full font-semibold w-fit border border-primary-200/50 dark:border-primary-800/50">
-          Admin
+        <div className="text-[10px] bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 px-2 py-0.5 rounded-full font-medium w-fit">
+          {isEditor ? "Editor" : "Admin"}
         </div>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={() => setSideOpen(false)}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                isActive
-                  ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md shadow-primary-500/25"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
-              }`
-            }>
-            <Icon size={18} />
-            <span style={{ flex: 1 }}>{label}</span>
-            {label === "Chats" && chatUnread > 0 && (
-              <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-red-500/30">
-                {chatUnread > 99 ? "99+" : chatUnread}
-              </span>
-            )}
-          </NavLink>
-        ))}
+        {NAV_FULL.filter((n) => !n.adminOnly || isAdmin).map(
+          ({ to, label, icon: Icon, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={() => setSideOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? "bg-primary-600 text-white"
+                    : "text-dark-600 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-800 hover:text-dark-900 dark:hover:text-dark-100"
+                }`
+              }>
+              <Icon size={18} />
+              <span style={{ flex: 1 }}>{label}</span>
+              {label === "Chats" && chatUnread > 0 && (
+                <span className="ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {chatUnread > 99 ? "99+" : chatUnread}
+                </span>
+              )}
+            </NavLink>
+          ),
+        )}
       </nav>
 
       <div className="p-3 border-t border-dark-100 dark:border-dark-800 space-y-1">
         <button
           onClick={toggleTheme}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-800 transition-colors">
           {theme === "dark" ? <FiSun size={16} /> : <FiMoon size={16} />}
           {theme === "dark" ? "Light Mode" : "Dark Mode"}
         </button>
-        <NavLink
-          to="/shop"
-          target="_blank"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-200 transition-colors">
-          <FiExternalLink size={16} /> View Shop
-        </NavLink>
+        {!isEditor && (
+          <NavLink
+            to="/shop"
+            target="_blank"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-dark-500 dark:text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-800 transition-colors">
+            <FiExternalLink size={16} /> View Shop
+          </NavLink>
+        )}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 transition-colors">
+          className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
           <FiLogOut size={16} /> Logout
         </button>
         <div className="flex items-center gap-2.5 px-3 py-2">

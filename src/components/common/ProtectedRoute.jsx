@@ -27,12 +27,26 @@ export const AdminRoute = ({ children }) => {
   return children;
 };
 
+// Requires editor OR admin login (for shared routes like /admin/orders,
+// /admin/products which the editor role can also access).
+export const StaffRoute = ({ children }) => {
+  const { user, isAdmin, isEditor, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) return <LoadingSpinner fullPage />;
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  if (!isAdmin && !isEditor) return <Navigate to="/login" replace />;
+
+  return children;
+};
+
 // Redirect if already logged in
 export const GuestRoute = ({ children }) => {
-  const { user, isAdmin, isOutlet, loading } = useAuth();
+  const { user, isAdmin, isEditor, isOutlet, loading } = useAuth();
 
   if (loading) return <LoadingSpinner fullPage />;
   if (user && isAdmin) return <Navigate to="/admin" replace />;
+  if (user && isEditor) return <Navigate to="/admin/orders" replace />;
   if (user && isOutlet) return <Navigate to="/shop" replace />;
 
   return children;

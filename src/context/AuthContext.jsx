@@ -58,6 +58,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         isAdmin: profile?.role === "admin",
         isOutlet: profile?.role === "outlet",
+        isEditor: profile?.role === "editor",
         outletId: profile?.outletId || null,
         outletName: profile?.outletName || null,
         refreshProfile,

@@ -5,6 +5,7 @@ import {
   AdminRoute,
   GuestRoute,
   OutletRoute,
+  StaffRoute,
 } from "@/components/common/ProtectedRoute";
 import ScrollToTop from "@/components/common/ScrollToTop";
 import Layout from "@/components/layout/Layout";
@@ -37,6 +38,7 @@ const AdminOrderDetail = lazy(() => import("@/pages/admin/AdminOrderDetail"));
 const AdminOutlets = lazy(() => import("@/pages/admin/AdminOutlets"));
 const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
 const AdminChats = lazy(() => import("@/pages/admin/AdminChats"));
+const AdminEditors = lazy(() => import("@/pages/admin/AdminEditors"));
 
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 
@@ -88,19 +90,76 @@ export default function App() {
           <Route
             path="/admin"
             element={
-              <AdminRoute>
+              <StaffRoute>
                 <AdminLayout />
-              </AdminRoute>
+              </StaffRoute>
             }>
-            <Route index element={<AdminDashboard />} />
-            <Route path="products" element={<AdminProducts />} />
-            <Route path="products/new" element={<AdminProductForm />} />
-            <Route path="products/:id/edit" element={<AdminProductForm />} />
+            <Route
+              index
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="products"
+              element={
+                <AdminRoute>
+                  <AdminProducts />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="products/new"
+              element={
+                <AdminRoute>
+                  <AdminProductForm />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="products/:id/edit"
+              element={
+                <AdminRoute>
+                  <AdminProductForm />
+                </AdminRoute>
+              }
+            />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="orders/:id" element={<AdminOrderDetail />} />
-            <Route path="outlets" element={<AdminOutlets />} />
-            <Route path="categories" element={<AdminCategories />} />
-            <Route path="chats" element={<AdminChats />} />
+            <Route
+              path="outlets"
+              element={
+                <AdminRoute>
+                  <AdminOutlets />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="categories"
+              element={
+                <AdminRoute>
+                  <AdminCategories />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="chats"
+              element={
+                <AdminRoute>
+                  <AdminChats />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="editors"
+              element={
+                <AdminRoute>
+                  <AdminEditors />
+                </AdminRoute>
+              }
+            />
           </Route>
 
           {/* ── 404 ── */}

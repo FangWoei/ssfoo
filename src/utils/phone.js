@@ -90,3 +90,16 @@ export function formatPhone(phone) {
   }
   return local;
 }
+
+/**
+ * Normalize an Outlet ID to a canonical form:
+ *   trim, uppercase, single spaces.
+ *   "outlet 001" → "OUTLET 001"
+ *   "  Outlet-01 " → "OUTLET-01"
+ *
+ * Used everywhere an Outlet ID is stored, entered, or compared.
+ */
+export function toUpperOutletId(raw) {
+  if (!raw) return "";
+  return String(raw).trim().toUpperCase().replace(/\s+/g, " ");
+}

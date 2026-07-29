@@ -11,7 +11,6 @@ import {
   setDoc,
   updateDoc,
   where,
-  writeBatch,
 } from "firebase/firestore";
 import { db } from "./config";
 
@@ -50,7 +49,7 @@ export const placeOrder = async (userId, orderData) => {
 async function notifyAdminsNewOrder(orderId, orderData) {
   // Look up every admin (small set — safe to read all)
   const usersSnap = await getDocs(
-    query(collection(db, "users"), where("role", "==", "admin")),
+    query(collection(db, "users"), where("role", "in", ["admin", "editor"])),
   );
   if (usersSnap.empty) return;
 

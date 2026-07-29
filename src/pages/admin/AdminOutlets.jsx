@@ -68,8 +68,7 @@ export default function AdminOutlets() {
       (o) =>
         o.outletId?.toLowerCase().includes(q) ||
         o.outletName?.toLowerCase().includes(q) ||
-        o.email?.toLowerCase().includes(q) ||
-        o.phone?.toLowerCase().includes(q)
+        o.email?.toLowerCase().includes(q),
     );
   }, [outlets, search]);
 
@@ -112,19 +111,11 @@ export default function AdminOutlets() {
     if (!form.outletId.trim()) return toast.error("Outlet ID is required");
     if (!form.outletName.trim()) return toast.error("Outlet name is required");
     if (isCreate) {
-      // Need email OR phone (at least one) for login
-      const hasEmail = form.email.trim() && isValidEmail(form.email);
-      const hasPhone = form.phone.trim();
-      if (!hasEmail && !hasPhone) {
-        return toast.error("Enter either an email or a phone number");
-      }
-      if (form.email.trim() && !isValidEmail(form.email)) {
-        return toast.error("Email is not valid");
-      }
+      if (!isValidEmail(form.email)) return toast.error("Enter a valid email");
       if (form.password.length < 6)
         return toast.error("Password must be at least 6 characters");
       const dupId = outlets.some(
-        (o) => o.outletId?.toLowerCase() === form.outletId.trim().toLowerCase(),
+        (o) => o.outletId?.toUpperCase() === form.outletId.trim().toUpperCase(),
       );
       if (dupId) return toast.error("This Outlet ID is already in use");
     }
@@ -135,7 +126,7 @@ export default function AdminOutlets() {
         await createOutlet({
           email: form.email.trim(),
           password: form.password,
-          outletId: form.outletId.trim(),
+          outletId: form.outletId.trim().toUpperCase(),
           outletName: form.outletName.trim(),
           phone: form.phone.trim(),
           address: form.address.trim(),
@@ -144,7 +135,7 @@ export default function AdminOutlets() {
         toast.success("Outlet created!");
       } else {
         await updateOutlet(modal.outlet.id, {
-          outletId: form.outletId.trim(),
+          outletId: form.outletId.trim().toUpperCase(),
           outletName: form.outletName.trim(),
           phone: form.phone.trim(),
           address: form.address.trim(),
@@ -354,18 +345,13 @@ export default function AdminOutlets() {
             <div className="space-y-3">
               {modal.mode === "create" ? (
                 <>
-                  <p className="text-xs text-dark-500 dark:text-dark-400 bg-primary-50 dark:bg-primary-900/20 px-3 py-2 rounded-lg">
-                    ℹ️ Fill in <b>email</b> or <b>phone</b> below (or both). The
-                    outlet can log in with whichever you provide.
-                  </p>
                   <div>
-                    <label className={labelCls}>Email</label>
+                    <label className={labelCls}>Login email *</label>
                     <input
                       type="email"
                       value={form.email}
                       onChange={set("email")}
                       className={inputCls}
-                      placeholder="e.g. outlet@example.com"
                     />
                   </div>
                   <div>
@@ -383,7 +369,7 @@ export default function AdminOutlets() {
                 </>
               ) : (
                 <div>
-                  <label className={labelCls}>Email</label>
+                  <label className={labelCls}>Login email</label>
                   <input
                     value={form.email}
                     disabled
@@ -397,9 +383,14 @@ export default function AdminOutlets() {
                   <label className={labelCls}>Outlet ID *</label>
                   <input
                     value={form.outletId}
-                    onChange={set("outletId")}
-                    className={inputCls}
-                    placeholder="e.g. OUTLET-01"
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        outletId: e.target.value.toUpperCase(),
+                      }))
+                    }
+                    className={`${inputCls} font-mono uppercase`}
+                    placeholder="E.G. OUTLET-01"
                   />
                 </div>
                 <div>
@@ -415,12 +406,9 @@ export default function AdminOutlets() {
               <div>
                 <label className={labelCls}>Phone</label>
                 <input
-                  type="tel"
-                  inputMode="tel"
                   value={form.phone}
                   onChange={set("phone")}
                   className={inputCls}
-                  placeholder="e.g. 012-345 6789"
                 />
               </div>
               <div>
