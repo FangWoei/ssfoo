@@ -419,7 +419,12 @@ export default function LoginPage() {
                     type="password"
                     required
                     value={form.adminCode}
-                    onChange={handle}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        adminCode: e.target.value.toUpperCase(),
+                      }))
+                    }
                     onFocus={() => setFocused("adminCode")}
                     onBlur={() => setFocused(null)}
                     placeholder="Enter your access code"
@@ -442,9 +447,7 @@ export default function LoginPage() {
             {tab === "outlet" && (
               <label
                 className="flex items-start gap-3 cursor-pointer select-none p-3 rounded-2xl transition-colors"
-                style={{
-                  background: agreed ? "rgba(20, 184, 166, 0.08)" : "#FFF7EE",
-                }}>
+                style={{ background: agreed ? "rgba(20, 184, 166, 0.08)" : "#FFF7EE" }}>
                 <input
                   type="checkbox"
                   checked={agreed}
@@ -525,8 +528,8 @@ export default function LoginPage() {
                   English
                 </h3>
                 <p className="text-dark-600 dark:text-dark-300 leading-relaxed">
-                  By logging into the SS FOO SDN. BHD. wholesale ordering
-                  portal, you (the outlet) agree to the following terms:
+                  By logging into the SS FOO SDN. BHD. wholesale ordering portal,
+                  you (the outlet) agree to the following terms:
                 </p>
                 <ol className="list-decimal list-inside space-y-2 text-dark-600 dark:text-dark-300 leading-relaxed">
                   <li>
@@ -534,15 +537,15 @@ export default function LoginPage() {
                     outlet only. Do not share your login credentials with anyone
                     outside your business. You shall not disclose confidential
                     prices or commercial information, and you shall not share
-                    screenshots containing prices or promotions. The Company may
-                    terminate dealership access at its discretion for any
+                    screenshots containing prices or promotions. The Company
+                    may terminate dealership access at its discretion for any
                     breach. You are responsible for all activity under your
                     account.
                   </li>
                   <li>
                     <b>Orders are proposals.</b> Placing an order in this portal
-                    is a purchase request. SS FOO SDN. BHD. reserves the right
-                    to confirm, adjust, or reject any order based on product
+                    is a purchase request. SS FOO SDN. BHD. reserves the right to
+                    confirm, adjust, or reject any order based on product
                     availability, pricing accuracy, or stock levels.
                   </li>
                   <li>
@@ -584,26 +587,21 @@ export default function LoginPage() {
                   中文
                 </h3>
                 <p className="text-dark-600 dark:text-dark-300 leading-relaxed">
-                  登入 SS FOO SDN. BHD.
-                  批发订购平台，即代表阁下（门店）同意以下条款：
+                  登入 SS FOO SDN. BHD. 批发订购平台，即代表阁下（门店）同意以下条款：
                 </p>
                 <ol className="list-decimal list-inside space-y-2 text-dark-600 dark:text-dark-300 leading-relaxed">
                   <li>
-                    <b>账号使用。</b>
-                    本账号仅供已注册门店使用。请勿将登入资料分享给业务以外的人士。您不得对外泄露机密价格或商业信息，亦不得分享任何含有价格或促销内容的截图。若有违规，本公司保留自行决定终止经销商权限的权利。您须为账号下的所有操作负责。
+                    <b>账号使用。</b>本账号仅供已注册门店使用。请勿将登入资料分享给业务以外的人士。您不得对外泄露机密价格或商业信息，亦不得分享任何含有价格或促销内容的截图。若有违规，本公司保留自行决定终止经销商权限的权利。您须为账号下的所有操作负责。
                   </li>
                   <li>
-                    <b>订单为请求。</b>在本平台下单属于采购请求。SS FOO SDN.
-                    BHD.
+                    <b>订单为请求。</b>在本平台下单属于采购请求。SS FOO SDN. BHD.
                     保留根据货品供应、价格及库存情况，确认、调整或拒绝任何订单的权利。
                   </li>
                   <li>
-                    <b>供货情况。</b>
-                    订单下达后，供货情况由我们的团队在线下确认。若有商品缺货，我们会主动联系您安排调整或替换。
+                    <b>供货情况。</b>订单下达后，供货情况由我们的团队在线下确认。若有商品缺货，我们会主动联系您安排调整或替换。
                   </li>
                   <li>
-                    <b>价格。</b>
-                    平台显示的价格为参考批发价，可能随时调整，恕不另行通知。最终以发票价格为准。
+                    <b>价格。</b>平台显示的价格为参考批发价，可能随时调整，恕不另行通知。最终以发票价格为准。
                   </li>
                   <li>
                     <b>付款与送货。</b>付款方式与送货安排须经 SS FOO SDN. BHD.
@@ -614,12 +612,10 @@ export default function LoginPage() {
                     天内联系我们处理任何问题。
                   </li>
                   <li>
-                    <b>隐私。</b>
-                    您的账号及订单数据仅用于处理订单及提供服务。我们不会与第三方分享您的数据。
+                    <b>隐私。</b>您的账号及订单数据仅用于处理订单及提供服务。我们不会与第三方分享您的数据。
                   </li>
                   <li>
-                    <b>条款更新。</b>
-                    本条款可能会更新。您持续使用本平台，即视为接受最新版本的条款。
+                    <b>条款更新。</b>本条款可能会更新。您持续使用本平台，即视为接受最新版本的条款。
                   </li>
                 </ol>
               </section>
