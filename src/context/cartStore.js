@@ -13,7 +13,13 @@ const useCartStore = create(
         set({ userId });
         try {
           const items = await loadCartFromFirestore(userId);
-          set({ items: items || [] });
+          // Auto-heal legacy items with corrupted qty (NaN/string/undefined)
+          const clean = (items || []).map((i) => ({
+            ...i,
+            qty: Number.isFinite(Number(i.qty)) ? Number(i.qty) : 1,
+            price: Number.isFinite(Number(i.price)) ? Number(i.price) : 0,
+          }));
+          set({ items: clean });
         } catch (e) {
           console.error("Cart load error", e);
         }
@@ -86,7 +92,18 @@ const useCartStore = create(
         return get().items.reduce((s, i) => s + i.price * i.qty, 0);
       },
     }),
-    { name: "ssfoo-cart" },
+    {
+      name: "ssfoo-cart",
+      onRehydrateStorage: () => (state) => {
+        if (state?.items) {
+          state.items = state.items.map((i) => ({
+            ...i,
+            qty: Number.isFinite(Number(i.qty)) ? Number(i.qty) : 1,
+            price: Number.isFinite(Number(i.price)) ? Number(i.price) : 0,
+          }));
+        }
+      },
+    },
   ),
 );
 

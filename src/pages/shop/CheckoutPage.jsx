@@ -40,7 +40,7 @@ export default function CheckoutPage() {
   );
   const belowMin = subtotal < MIN_ORDER;
   const shortBy = Math.max(0, MIN_ORDER - subtotal);
-  const totalItems = items.reduce((s, i) => s + i.qty, 0);
+  const totalItems = items.reduce((s, i) => s + (Number(i.qty) || 0), 0);
   const getMoq = (item) => Math.max(1, item.minOrder ?? item.moq ?? 1);
 
   // Guard: nothing to checkout (skip after a successful order)
