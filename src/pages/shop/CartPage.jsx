@@ -35,6 +35,9 @@ export default function CartPage() {
   const getMoq = (item) => Math.max(1, item.minOrder ?? item.moq ?? 1);
 
   const handleQty = (item, next) => {
+    const n = Number(next);
+    if (isNaN(n)) return;
+    next = n;
     const moq = getMoq(item);
     if (next < moq) {
       toast.error(`Minimum order quantity is ${moq}`);
@@ -153,7 +156,9 @@ export default function CartPage() {
                       {/* Qty stepper */}
                       <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
                         <button
-                          onClick={() => handleQty(item, item.qty - 1)}
+                          onClick={() =>
+                            handleQty(item, (Number(item.qty) || 0) - 1)
+                          }
                           disabled={item.qty <= moq}
                           className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                           <FiMinus size={13} />
@@ -166,7 +171,9 @@ export default function CartPage() {
                           className="w-14 text-center text-sm font-semibold bg-transparent text-slate-900 dark:text-slate-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <button
-                          onClick={() => handleQty(item, item.qty + 1)}
+                          onClick={() =>
+                            handleQty(item, (Number(item.qty) || 0) + 1)
+                          }
                           className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                           <FiPlus size={13} />
                         </button>

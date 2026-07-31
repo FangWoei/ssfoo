@@ -35,15 +35,16 @@ const useCartStore = create(
       addItem: (item) => {
         const { items, _sync } = get();
         const existing = items.find((i) => i.productId === item.productId);
+        const addQty = Number(item.qty) || 0;
         let updated;
         if (existing) {
           updated = items.map((i) =>
             i.productId === item.productId
-              ? { ...i, qty: Math.min(i.qty + item.qty, item.stock) }
+              ? { ...i, qty: (Number(i.qty) || 0) + addQty }
               : i,
           );
         } else {
-          updated = [...items, { ...item }];
+          updated = [...items, { ...item, qty: addQty }];
         }
         set({ items: updated });
         _sync(updated);
@@ -56,9 +57,10 @@ const useCartStore = create(
       },
 
       updateQty: (productId, qty) => {
-        if (qty < 1) return;
+        const n = Number(qty);
+        if (isNaN(n) || n < 1) return;
         const updated = get().items.map((i) =>
-          i.productId === productId ? { ...i, qty: Math.min(qty, i.stock) } : i,
+          i.productId === productId ? { ...i, qty: n } : i,
         );
         set({ items: updated });
         get()._sync(updated);
