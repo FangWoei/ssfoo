@@ -288,7 +288,7 @@ export default function AdminOrders() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-dark-400 truncate">
+                      <p className="text-xs text-dark-400 break-words">
                         {o.outletName || o.outletId} · {(o.items || []).length}{" "}
                         products · {formatOrderDate(o.createdAt)}
                       </p>

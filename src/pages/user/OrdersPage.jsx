@@ -145,7 +145,7 @@ export default function OrdersPage() {
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    <span className="text-xs text-slate-500 dark:text-slate-400 break-words">
                       {items.length} product{items.length !== 1 ? "s" : ""} ·{" "}
                       {order.totalItems ??
                         items.reduce((n, i) => n + (i.qty || 0), 0)}{" "}

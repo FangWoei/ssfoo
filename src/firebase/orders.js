@@ -7,23 +7,49 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "./config";
 
 const COL = "orders";
 
+// Atomic sequential order number generator.
+// Uses a single counter doc at /counters/orders with a `next` field.
+// Numbers are zero-padded to 5 digits (00001, 00002, …).
+async function getNextOrderNumber() {
+  const counterRef = doc(db, "counters", "orders");
+  const nextNum = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(counterRef);
+    const current = snap.exists() ? Number(snap.data().next) || 1 : 1;
+    tx.set(counterRef, { next: current + 1, updatedAt: serverTimestamp() });
+    return current;
+  });
+  return String(nextNum).padStart(5, "0");
+}
+
 export const placeOrder = async (userId, orderData) => {
   const orderRef = doc(collection(db, COL));
 
-  // Stock tracking has been removed — outlets order freely and
-  // availability is handled offline. Just write the order.
+  // Allocate the sequential order number BEFORE writing the order.
+  // If the transaction fails, we don't create a half-formed order.
+  let orderNumber = "";
+  try {
+    orderNumber = await getNextOrderNumber();
+  } catch (e) {
+    console.error("Order number allocation failed:", e);
+    // Fall back to short id from the autoId so orders never get blocked.
+    orderNumber = orderRef.id.slice(-5).toUpperCase();
+  }
+
   await setDoc(orderRef, {
     ...orderData,
     userId,
+    orderNumber,
     createdAt: serverTimestamp(),
   });
 

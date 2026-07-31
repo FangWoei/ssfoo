@@ -52,7 +52,9 @@ export const createOutlet = async ({
   const secondaryAuth = getAuth(secondaryApp);
 
   try {
-    // 1. Create Firebase Auth account on the secondary app
+    // 1. Create Firebase Auth account on the secondary app.
+    //    Uses either the real email OR a synthesized pseudo-email
+    //    derived from the phone number.
     const credential = await createUserWithEmailAndPassword(
       secondaryAuth,
       authEmail,
@@ -62,7 +64,7 @@ export const createOutlet = async ({
 
     // 2. Save profile to Firestore (main app — admin is still signed in).
     //    Store the REAL email if given (empty otherwise), plus the phone.
-    //    We NEVER store the pseudo-email in this field — that's an
+    //    We NEVER store the pseudo-email in this field — it's an
     //    implementation detail only Firebase Auth sees.
     await setDoc(doc(db, "users", uid), {
       uid,

@@ -1,7 +1,7 @@
 // src/utils/exporters.js
 // Export helpers for orders (#2 outlet PDF, #3 admin Excel + PDF).
 import * as XLSX from "xlsx";
-import { formatOrderDate, shortId } from "./orderHelpers";
+import { formatOrderDate, orderLabel } from "./orderHelpers";
 
 const rm = (n) => `RM ${Number(n || 0).toFixed(2)}`;
 
@@ -9,7 +9,7 @@ const rm = (n) => `RM ${Number(n || 0).toFixed(2)}`;
 export const exportOrdersToExcel = (orders, filename = "orders") => {
   // Sheet 1: order summary
   const summary = orders.map((o) => ({
-    "Order ID": shortId(o.id),
+    "Order ID": orderLabel(o),
     "Full ID": o.id,
     Outlet: o.outletName || o.outletId || "",
     "Outlet ID": o.outletId || "",
@@ -27,7 +27,7 @@ export const exportOrdersToExcel = (orders, filename = "orders") => {
   orders.forEach((o) => {
     (o.items || []).forEach((i) => {
       lines.push({
-        "Order ID": shortId(o.id),
+        "Order ID": orderLabel(o),
         Outlet: o.outletName || o.outletId || "",
         "Item Code": i.itemCode || "",
         Product: i.name,
@@ -104,21 +104,19 @@ export const printOrderPDF = (
 
   const contactBlock = forAdmin
     ? `<div class="meta">
-         <div class="meta-label">Bill To</div>
-         ${order.outletName ? `<span class="mono">Outlet Name: ${escapeHtml(order.outletName)}</span><br/>` : ""}
-         ${order.outletId ? `<span class="mono">Outlet ID: ${escapeHtml(order.outletId)}</span><br/>` : ""}
+         <strong>${escapeHtml(order.outletName || order.outletId || "")}</strong><br/>
+         ${escapeHtml(order.outletId || "")}<br/>
          ${outlet?.email ? escapeHtml(outlet.email) + "<br/>" : ""}
          ${outlet?.phone ? escapeHtml(outlet.phone) + "<br/>" : ""}
          ${outlet?.address ? escapeHtml(outlet.address) : ""}
        </div>`
     : `<div class="meta">
-         <div class="meta-label">Outlet</div>
-         <strong>${escapeHtml(order.outletName || "—")}</strong><br/>
-         ${order.outletId ? `<span class="mono">ID: ${escapeHtml(order.outletId)}</span>` : ""}
+         <strong>${escapeHtml(order.outletName || order.outletId || "")}</strong><br/>
+         ${escapeHtml(order.outletId || "")}
        </div>`;
 
   const html = `<!doctype html><html><head><meta charset="utf-8"/>
-  <title>Order ${shortId(order.id)}</title>
+  <title>Order ${orderLabel(order)}</title>
   <style>
     * { font-family: Arial, sans-serif; }
     body { color: #1e293b; padding: 32px; }
@@ -135,8 +133,6 @@ export const printOrderPDF = (
     td.c, th.c { text-align: center; }
     td.code { font-family: monospace; font-weight: bold; color: #0f766e; }
     tr.note td { color: #0d9488; font-style: italic; border-bottom: 1px solid #e2e8f0; }
-    .meta-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; font-weight: 700; }
-    .mono { font-family: "Courier New", monospace; font-size: 12px; color: #0f766e; font-weight: bold; }
     .total { margin-top: 16px; text-align: right; font-size: 14px; }
     .total b { color: #0d9488; font-size: 20px; }
     .remarks { margin-top: 20px; padding: 12px; background: #f8fafc; border-radius: 8px; font-size: 12px; }
@@ -147,7 +143,7 @@ export const printOrderPDF = (
     <div class="row">
       ${contactBlock}
       <div class="oid">
-        Order<br/><b>${shortId(order.id)}</b><br/>
+        Order<br/><b>${orderLabel(order)}</b><br/>
         ${formatOrderDate(order.createdAt)}<br/>
         ${forAdmin ? (order.done ? "Status: Done" : "Status: New") : ""}
       </div>
@@ -181,7 +177,7 @@ export const exportSingleOrderToExcel = (order, outlet = null) => {
 
   // Sheet 1: order info (key/value)
   const info = [
-    { Field: "Order ID", Value: shortId(order.id) },
+    { Field: "Order ID", Value: orderLabel(order) },
     { Field: "Full ID", Value: order.id },
     { Field: "Status", Value: order.done ? "Done" : "New" },
     { Field: "Date", Value: formatOrderDate(order.createdAt) },
@@ -223,7 +219,7 @@ export const exportSingleOrderToExcel = (order, outlet = null) => {
   XLSX.utils.book_append_sheet(wb, ws1, "Order");
   XLSX.utils.book_append_sheet(wb, ws2, "Items");
 
-  XLSX.writeFile(wb, `order_${shortId(order.id).replace("#", "")}.xlsx`);
+  XLSX.writeFile(wb, `order_${orderLabel(order).replace("#", "")}.xlsx`);
 };
 
 // ── Single order → client "sales order" format (.xls) ──
@@ -297,7 +293,7 @@ export const exportOrderClientFormat = (order) => {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "sales order");
 
-  XLSX.writeFile(wb, `sales_order_${shortId(order.id).replace("#", "")}.xls`, {
+  XLSX.writeFile(wb, `sales_order_${orderLabel(order).replace("#", "")}.xls`, {
     bookType: "xls",
   });
 };
@@ -313,7 +309,7 @@ function escapeHtml(str = "") {
 // ── Share an order via WhatsApp ───────────────────────
 export const shareOrderWhatsApp = (order) => {
   const lines = [];
-  lines.push(`*SSFOO Order ${shortId(order.id)}*`);
+  lines.push(`*SSFOO Order ${orderLabel(order)}*`);
   if (order.outletName || order.outletId)
     lines.push(
       `Outlet: ${order.outletName || ""}${order.outletId ? ` (${order.outletId})` : ""}`,
@@ -358,7 +354,7 @@ export const printPickingList = (order, outlet = null) => {
     )
     .join("");
 
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Picking List ${shortId(order.id)}</title>
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Picking List ${orderLabel(order)}</title>
   <style>
     * { box-sizing: border-box; font-family: Arial, sans-serif; }
     body { margin: 24px; color: #111; }
@@ -379,7 +375,7 @@ export const printPickingList = (order, outlet = null) => {
     .footer span { border-top: 1px solid #111; padding-top: 6px; min-width: 180px; }
     @media print { body { margin: 10mm; } }
   </style></head><body>
-    <h1>PICKING LIST — ${shortId(order.id)}</h1>
+    <h1>PICKING LIST — ${orderLabel(order)}</h1>
     <div class="meta">
       Outlet: <b>${escapeHtml(order.outletName || "")}</b>${order.outletId ? ` (${escapeHtml(order.outletId)})` : ""}
       &nbsp;·&nbsp; Placed: ${formatOrderDate(order.createdAt)}

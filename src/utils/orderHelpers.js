@@ -15,3 +15,11 @@ export const formatOrderDate = (ts) => {
 };
 
 export const shortId = (id = "") => `#${id.slice(-6).toUpperCase()}`;
+
+// Prefer the sequential orderNumber (00001) when available.
+// Falls back to the truncated Firestore autoId (#UZBRJW) for legacy orders.
+export const orderLabel = (order = {}) => {
+  const num = order.orderNumber;
+  if (num) return `#${num}`;
+  return shortId(order.id || "");
+};

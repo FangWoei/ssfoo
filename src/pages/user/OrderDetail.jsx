@@ -80,23 +80,21 @@ export default function OrderDetail() {
     <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <Link
-            to="/orders"
-            className="p-2 rounded-xl text-slate-500 hover:text-primary-600 hover:bg-[#FFF7EE] dark:hover:bg-primary-900/20 transition-colors shrink-0"
-            title="Back to orders">
-            <FiArrowLeft size={18} />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-              {shortId(order.id)}
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Placed {formatOrderDate(order.createdAt)}
-            </p>
-          </div>
+        <Link
+          to="/orders"
+          className="p-2 rounded-lg text-slate-500 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+          title="Back to orders">
+          <FiArrowLeft size={18} />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
+            {shortId(order.id)}
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Placed {formatOrderDate(order.createdAt)}
+          </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap sm:shrink-0 w-full sm:w-auto">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           <button
             onClick={async () => {
               setReordering(true);
@@ -143,18 +141,18 @@ export default function OrderDetail() {
               }
             }}
             disabled={reordering}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 disabled:opacity-60 text-white shadow-md shadow-primary-500/25 transition-all">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white transition-colors">
             <FiRepeat size={15} className={reordering ? "animate-spin" : ""} />
             Order Again
           </button>
           <button
             onClick={() => shareOrderWhatsApp(order)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-[#FFE8D6] dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-primary-500 hover:bg-[#FFF7EE] transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-500 transition-colors">
             <FiShare2 size={15} /> WhatsApp
           </button>
           <button
             onClick={() => printOrderPDF(order, { forAdmin: false })}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-[#FFE8D6] dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-primary-500 hover:bg-[#FFF7EE] transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-teal-500 transition-colors">
             <FiPrinter size={15} /> PDF
           </button>
         </div>
@@ -162,7 +160,7 @@ export default function OrderDetail() {
 
       <div className="grid lg:grid-cols-[1fr_300px] gap-5 items-start">
         {/* ── Items ── */}
-        <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
           <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-4">
             Items ({items.length})
           </h2>
@@ -192,7 +190,7 @@ export default function OrderDetail() {
                       )}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100 shrink-0">
+                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100 sm:shrink-0 whitespace-nowrap sm:text-right">
                     {formatPrice(
                       (Number(item.price) || 0) * (Number(item.qty) || 0),
                     )}
@@ -211,7 +209,7 @@ export default function OrderDetail() {
         {/* ── Side: remarks + summary ── */}
         <div className="space-y-4">
           {order.remarks?.trim() && (
-            <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-2">
                 <FiFileText
                   size={15}
@@ -227,7 +225,7 @@ export default function OrderDetail() {
             </div>
           )}
 
-          <div className="bg-white dark:bg-slate-900 border border-white dark:border-slate-800 rounded-3xl shadow-md shadow-primary-500/5 p-5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
             <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-3">
               Summary
             </h2>

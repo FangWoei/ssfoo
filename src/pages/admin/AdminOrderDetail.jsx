@@ -286,18 +286,18 @@ export default function AdminOrderDetail() {
               Summary
             </h2>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between gap-3 flex-wrap text-dark-400">
+              <div className="flex justify-between text-dark-400">
                 <span>Products</span>
                 <span>{items.length}</span>
               </div>
-              <div className="flex justify-between gap-3 flex-wrap text-dark-400">
+              <div className="flex justify-between text-dark-400">
                 <span>Total units</span>
                 <span>
                   {order.totalItems ??
                     items.reduce((n, i) => n + (i.qty || 0), 0)}
                 </span>
               </div>
-              <div className="border-t border-dark-100 dark:border-dark-800 pt-2.5 flex justify-between gap-3 flex-wrap font-bold text-dark-900 dark:text-dark-100">
+              <div className="border-t border-dark-100 dark:border-dark-800 pt-2.5 flex justify-between font-bold text-dark-900 dark:text-dark-100">
                 <span>Total</span>
                 <span className="text-primary-700 dark:text-primary-400">
                   {formatPrice(order.total ?? subtotal)}

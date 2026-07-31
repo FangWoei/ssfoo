@@ -5,13 +5,18 @@
 //   VITE_EMAILJS_SERVICE_ID
 //   VITE_EMAILJS_TEMPLATE_ID
 //   VITE_EMAILJS_PUBLIC_KEY
-//   VITE_ADMIN_EMAIL   (where the admin copy goes)
+//   VITE_ORDER_EMAIL   (where new-order notifications go — usually the editor/ops inbox)
 import emailjs from "@emailjs/browser";
 
 const SERVICE = import.meta.env.VITE_EMAILJS_SERVICE_ID;
 const TEMPLATE = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
 const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL;
+// Where new order notifications go. This is the operations inbox
+// (usually the editor/staff who prints and processes orders), NOT
+// the admin's personal Gmail. Prefer VITE_ORDER_EMAIL; fall back
+// to the legacy VITE_ADMIN_EMAIL for backwards compat.
+const ORDER_INBOX_EMAIL =
+  import.meta.env.VITE_ORDER_EMAIL || import.meta.env.VITE_ADMIN_EMAIL;
 
 const rm = (n) => `RM ${Number(n || 0).toFixed(2)}`;
 
@@ -29,7 +34,9 @@ const buildParams = (order, orderId, extra = {}) => {
   const units = order.totalItems ?? items.reduce((n, i) => n + (i.qty || 0), 0);
 
   return {
-    order_id: `#${orderId.slice(-6).toUpperCase()}`,
+    order_id: order.orderNumber
+      ? `#${order.orderNumber}`
+      : `#${orderId.slice(-6).toUpperCase()}`,
     outlet_name: order.outletName || order.outletId || "",
     outlet_id: order.outletId || "",
     order_items: itemsText,
@@ -67,14 +74,14 @@ export const sendOrderEmails = async (order, orderId, outletEmail) => {
     );
   }
 
-  // Admin copy
-  if (ADMIN_EMAIL) {
+  // Order-inbox copy (editor/ops team)
+  if (ORDER_INBOX_EMAIL) {
     jobs.push(
       emailjs.send(
         SERVICE,
         TEMPLATE,
         buildParams(order, orderId, {
-          to_email: ADMIN_EMAIL,
+          to_email: ORDER_INBOX_EMAIL,
           recipient_type: "admin",
           greeting: `New order received from ${order.outletName || order.outletId}.`,
         }),
