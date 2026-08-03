@@ -6,7 +6,7 @@ import { getOrder } from "@/firebase/orders";
 import { getProduct } from "@/firebase/products";
 import { printOrderPDF, shareOrderWhatsApp } from "@/utils/exporters";
 import { formatPrice } from "@/utils/helpers";
-import { formatOrderDate, shortId } from "@/utils/orderHelpers";
+import { formatOrderDate, orderLabel } from "@/utils/orderHelpers";
 import { effectivePrice, isOnPromo } from "@/utils/promo";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
@@ -88,7 +88,7 @@ export default function OrderDetail() {
         </Link>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-            {shortId(order.id)}
+            {orderLabel(order)}
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">
             Placed {formatOrderDate(order.createdAt)}

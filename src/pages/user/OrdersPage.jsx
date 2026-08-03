@@ -3,7 +3,7 @@ import LoadingSpinner from "@/components/common/LoadingSpinner";
 import { useAuth } from "@/context/AuthContext";
 import { getMyOrders } from "@/firebase/orders";
 import { formatPrice } from "@/utils/helpers";
-import { formatOrderDate, shortId } from "@/utils/orderHelpers";
+import { formatOrderDate, orderLabel } from "@/utils/orderHelpers";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { FiArrowRight, FiPackage, FiSearch, FiX } from "react-icons/fi";
@@ -118,7 +118,7 @@ export default function OrdersPage() {
                 className="block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 hover:border-teal-500 dark:hover:border-teal-500 transition-colors group">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <span className="font-mono text-sm font-bold text-slate-900 dark:text-slate-100">
-                    {shortId(order.id)}
+                    {orderLabel(order)}
                   </span>
                   <span className="text-xs text-slate-400 shrink-0">
                     {formatOrderDate(order.createdAt)}

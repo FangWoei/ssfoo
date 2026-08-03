@@ -6,7 +6,7 @@ import { getAllOrders, toggleOrderDone } from "@/firebase/orders";
 import usePersistedState from "@/hooks/usePersistedState";
 import { exportOrdersToExcel } from "@/utils/exporters";
 import { formatPrice } from "@/utils/helpers";
-import { formatOrderDate, shortId } from "@/utils/orderHelpers";
+import { formatOrderDate, orderLabel } from "@/utils/orderHelpers";
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -280,7 +280,7 @@ export default function AdminOrders() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-sm font-bold text-dark-900 dark:text-dark-100">
-                          {shortId(o.id)}
+                          {orderLabel(o)}
                         </span>
                         {isNew && (
                           <span className="px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-[10px] font-bold uppercase">

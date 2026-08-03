@@ -9,7 +9,7 @@ import {
   shareOrderWhatsApp,
 } from "@/utils/exporters";
 import { formatPrice } from "@/utils/helpers";
-import { formatOrderDate, shortId } from "@/utils/orderHelpers";
+import { formatOrderDate, orderLabel } from "@/utils/orderHelpers";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -102,7 +102,7 @@ export default function AdminOrderDetail() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-xl font-bold font-mono text-dark-900 dark:text-dark-100">
-              {shortId(order.id)}
+              {orderLabel(order)}
             </h1>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
