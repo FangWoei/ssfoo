@@ -10,9 +10,24 @@ import {
   sendMessage,
 } from "@/firebase/chat";
 import { getAllProducts } from "@/firebase/products";
+import { uploadImage } from "@/firebase/storage";
+import useStagedChatImages, {
+  MAX_CHAT_IMAGES,
+} from "@/hooks/useStagedChatImages";
 import { effectivePrice } from "@/utils/promo";
 import { useEffect, useRef, useState } from "react";
-import { FiMessageCircle, FiPackage, FiSend, FiX } from "react-icons/fi";
+import toast from "react-hot-toast";
+import {
+  FiImage,
+  FiMessageCircle,
+  FiPackage,
+  FiSend,
+  FiX,
+} from "react-icons/fi";
+import ChatImageGrid from "./ChatImageGrid";
+import ImageLightbox from "./ImageLightbox";
+
+const MAX_IMAGES = MAX_CHAT_IMAGES;
 
 const fmtTime = (ts) => {
   const d = ts?.toDate?.();
@@ -32,7 +47,20 @@ export default function ChatWidget() {
   const [pickerSearch, setPickerSearch] = useState("");
   const [prods, setProds] = useState(null); // null = not loaded yet
   const [loadingProds, setLoadingProds] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // { images, index } | null
   const bottomRef = useRef(null);
+  const {
+    staged,
+    fileInputRef,
+    dragOver,
+    handleFilesSelected,
+    handlePaste,
+    handleDrop,
+    setDragOver,
+    removeStaged,
+    clearStaged,
+    resolveStagedImages,
+  } = useStagedChatImages(MAX_IMAGES);
 
   const uid = user?.uid;
 
@@ -101,19 +129,24 @@ export default function ChatWidget() {
 
   const handleSend = async () => {
     const t = text.trim();
-    if ((!t && !attached) || sending) return;
+    if ((!t && !attached && staged.length === 0) || sending) return;
     setSending(true);
     try {
+      const images = await resolveStagedImages((file, i) =>
+        uploadImage(file, `chat-images/${uid}/${Date.now()}_${i}_${file.name}`),
+      );
       await sendMessage(
         uid,
         profile?.outletName || profile?.outletId || "",
         profile?.outletId || "",
-        { text: t, product: attached },
+        { text: t, product: attached, images },
       );
+      clearStaged();
       setText("");
       setAttached(null);
     } catch (e) {
       console.error("Send failed:", e);
+      toast.error("Failed to send");
     } finally {
       setSending(false);
     }
@@ -212,6 +245,14 @@ export default function ChatWidget() {
                         </div>
                       </div>
                     )}
+                    {m.images?.length > 0 && (
+                      <ChatImageGrid
+                        images={m.images}
+                        onOpen={(i) =>
+                          setLightbox({ images: m.images, index: i })
+                        }
+                      />
+                    )}
                     {m.text && (
                       <p className="px-3 py-2 whitespace-pre-wrap break-words">
                         {typeof m.text === "string"
@@ -263,14 +304,63 @@ export default function ChatWidget() {
             </div>
           )}
 
+          {/* Staged image previews */}
+          {staged.length > 0 && (
+            <div className="px-2.5 pt-2 shrink-0 flex gap-1.5 overflow-x-auto">
+              {staged.map((s) => (
+                <div
+                  key={s.id}
+                  className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-dark-200 dark:border-dark-700">
+                  <img
+                    src={s.preview}
+                    alt=""
+                    className="w-full h-full"
+                    style={{ objectFit: "cover" }}
+                  />
+                  <button
+                    onClick={() => removeStaged(s.id)}
+                    className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center">
+                    <FiX size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Input */}
-          <div className="p-2.5 border-t border-dark-100 dark:border-dark-800 flex items-center gap-2 shrink-0">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={`p-2.5 border-t flex items-center gap-2 shrink-0 transition-colors ${
+              dragOver
+                ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                : "border-dark-100 dark:border-dark-800"
+            }`}>
             <button
               onClick={openPicker}
               title="Send a product"
               className="w-10 h-10 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-500 dark:text-dark-400 hover:border-primary-500 hover:text-primary-600 flex items-center justify-center shrink-0 transition-colors">
               <FiPackage size={16} />
             </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              title={`Send photos (up to ${MAX_IMAGES})`}
+              disabled={staged.length >= MAX_IMAGES}
+              className="w-10 h-10 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-500 dark:text-dark-400 hover:border-primary-500 hover:text-primary-600 disabled:opacity-40 flex items-center justify-center shrink-0 transition-colors">
+              <FiImage size={16} />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={handleFilesSelected}
+            />
             <input
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -280,13 +370,16 @@ export default function ChatWidget() {
                   handleSend();
                 }
               }}
-              placeholder="Type a message…"
+              onPaste={handlePaste}
+              placeholder="Type a message… (Ctrl+V to paste a photo or image link)"
               className="flex-1 px-3 py-2.5 text-sm rounded-xl bg-dark-50 dark:bg-dark-800 border border-transparent focus:border-primary-500 text-dark-900 dark:text-dark-100 outline-none transition-colors"
               style={{ minWidth: 0 }}
             />
             <button
               onClick={handleSend}
-              disabled={sending || (!text.trim() && !attached)}
+              disabled={
+                sending || (!text.trim() && !attached && staged.length === 0)
+              }
               className="w-10 h-10 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-colors">
               <FiSend size={16} />
             </button>
@@ -369,6 +462,16 @@ export default function ChatWidget() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Fullscreen image viewer ── */}
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndexChange={(i) => setLightbox((l) => ({ ...l, index: i }))}
+        />
       )}
     </>
   );

@@ -2,6 +2,8 @@
 // Admin side of the chat: list of outlet threads (left) + selected
 // conversation (right). On mobile it shows one at a time with a back
 // button. Adapted from Ladybird for Ssfoo.
+import ChatImageGrid from "@/components/chat/ChatImageGrid";
+import ImageLightbox from "@/components/chat/ImageLightbox";
 import {
   listenAllChats,
   listenMessages,
@@ -9,17 +11,24 @@ import {
   sendAdminReply,
 } from "@/firebase/chat";
 import { getAllProducts } from "@/firebase/products";
+import { uploadImage } from "@/firebase/storage";
+import useStagedChatImages, {
+  MAX_CHAT_IMAGES,
+} from "@/hooks/useStagedChatImages";
 import { effectivePrice } from "@/utils/promo";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
   FiArrowLeft,
+  FiImage,
   FiMessageCircle,
   FiPackage,
   FiSend,
   FiUser,
   FiX,
 } from "react-icons/fi";
+
+const MAX_IMAGES = MAX_CHAT_IMAGES;
 
 const fmtTime = (ts) => {
   const d = ts?.toDate?.();
@@ -41,7 +50,20 @@ export default function AdminChats() {
   const [pickerSearch, setPickerSearch] = useState("");
   const [prods, setProds] = useState(null);
   const [loadingProds, setLoadingProds] = useState(false);
+  const [lightbox, setLightbox] = useState(null); // { images, index } | null
   const bottomRef = useRef(null);
+  const {
+    staged,
+    fileInputRef,
+    dragOver,
+    setDragOver,
+    handleFilesSelected,
+    handlePaste,
+    handleDrop,
+    removeStaged,
+    clearStaged,
+    resolveStagedImages,
+  } = useStagedChatImages(MAX_IMAGES);
 
   // All threads (realtime)
   useEffect(() => listenAllChats(setChats), []);
@@ -52,6 +74,13 @@ export default function AdminChats() {
     const unsub = listenMessages(selected, setMessages);
     markReadByAdmin(selected).catch(() => {});
     return unsub;
+  }, [selected]);
+
+  // Don't carry staged photos across threads when switching outlets
+  useEffect(() => {
+    clearStaged();
+    setAttached(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
   // Mark read as new messages arrive while viewing + autoscroll
@@ -90,10 +119,18 @@ export default function AdminChats() {
 
   const handleSend = async () => {
     const t = text.trim();
-    if ((!t && !attached) || sending || !selected) return;
+    if ((!t && !attached && staged.length === 0) || sending || !selected)
+      return;
     setSending(true);
     try {
-      await sendAdminReply(selected, { text: t, product: attached });
+      const images = await resolveStagedImages((file, i) =>
+        uploadImage(
+          file,
+          `chat-images/${selected}/${Date.now()}_${i}_${file.name}`,
+        ),
+      );
+      await sendAdminReply(selected, { text: t, product: attached, images });
+      clearStaged();
       setText("");
       setAttached(null);
     } catch (e) {
@@ -296,6 +333,14 @@ export default function AdminChats() {
                             </div>
                           </div>
                         )}
+                        {m.images?.length > 0 && (
+                          <ChatImageGrid
+                            images={m.images}
+                            onOpen={(i) =>
+                              setLightbox({ images: m.images, index: i })
+                            }
+                          />
+                        )}
                         {m.text && (
                           <p className="px-3 py-2 whitespace-pre-wrap break-words">
                             {m.text}
@@ -345,14 +390,63 @@ export default function AdminChats() {
                 </div>
               )}
 
+              {/* Staged image previews */}
+              {staged.length > 0 && (
+                <div className="px-3 pt-2 shrink-0 flex gap-1.5 overflow-x-auto">
+                  {staged.map((s) => (
+                    <div
+                      key={s.id}
+                      className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-dark-200 dark:border-dark-700">
+                      <img
+                        src={s.preview}
+                        alt=""
+                        className="w-full h-full"
+                        style={{ objectFit: "cover" }}
+                      />
+                      <button
+                        onClick={() => removeStaged(s.id)}
+                        className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center">
+                        <FiX size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Input */}
-              <div className="p-3 border-t border-dark-100 dark:border-dark-800 flex items-center gap-2 shrink-0">
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                className={`p-3 border-t flex items-center gap-2 shrink-0 transition-colors ${
+                  dragOver
+                    ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20"
+                    : "border-dark-100 dark:border-dark-800"
+                }`}>
                 <button
                   onClick={openPicker}
                   title="Send a product"
                   className="w-10 h-10 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-500 dark:text-dark-400 hover:border-primary-500 hover:text-primary-600 flex items-center justify-center shrink-0 transition-colors">
                   <FiPackage size={16} />
                 </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  title={`Send photos (up to ${MAX_IMAGES})`}
+                  disabled={staged.length >= MAX_IMAGES}
+                  className="w-10 h-10 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-500 dark:text-dark-400 hover:border-primary-500 hover:text-primary-600 disabled:opacity-40 flex items-center justify-center shrink-0 transition-colors">
+                  <FiImage size={16} />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={handleFilesSelected}
+                />
                 <input
                   value={text}
                   onChange={(e) => setText(e.target.value)}
@@ -362,13 +456,17 @@ export default function AdminChats() {
                       handleSend();
                     }
                   }}
-                  placeholder={`Reply to ${activeChat.outletName || "outlet"}…`}
+                  onPaste={handlePaste}
+                  placeholder={`Reply to ${activeChat.outletName || "outlet"}… (Ctrl+V to paste a photo or image link)`}
                   className="flex-1 px-3.5 py-2.5 text-sm rounded-xl bg-dark-50 dark:bg-dark-800 border border-transparent focus:border-primary-500 text-dark-900 dark:text-dark-100 outline-none transition-colors"
                   style={{ minWidth: 0 }}
                 />
                 <button
                   onClick={handleSend}
-                  disabled={sending || (!text.trim() && !attached)}
+                  disabled={
+                    sending ||
+                    (!text.trim() && !attached && staged.length === 0)
+                  }
                   className="w-10 h-10 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-40 text-white flex items-center justify-center shrink-0 transition-colors">
                   <FiSend size={16} />
                 </button>
@@ -456,6 +554,16 @@ export default function AdminChats() {
           )}
         </div>
       </div>
+
+      {/* ── Fullscreen image viewer ── */}
+      {lightbox && (
+        <ImageLightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndexChange={(i) => setLightbox((l) => ({ ...l, index: i }))}
+        />
+      )}
     </div>
   );
 }
