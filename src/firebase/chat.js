@@ -23,7 +23,7 @@ export const sendMessage = async (
   outletUid,
   outletName,
   outletId,
-  { text = "", product = null } = {},
+  { text = "", product = null, images = [] } = {},
 ) => {
   const cleanProduct = product
     ? {
@@ -35,9 +35,15 @@ export const sendMessage = async (
       }
     : null;
 
+  const cleanImages = Array.isArray(images)
+    ? images.filter(Boolean).slice(0, 5)
+    : [];
+
   const lastMessage = cleanProduct
     ? `📦 ${cleanProduct.itemCode || cleanProduct.name}${text ? ` — ${text}` : ""}`
-    : text;
+    : cleanImages.length
+      ? `📷 ${cleanImages.length > 1 ? `${cleanImages.length} photos` : "Photo"}${text ? ` — ${text}` : ""}`
+      : text;
 
   await setDoc(
     doc(db, "chats", outletUid),
@@ -55,6 +61,7 @@ export const sendMessage = async (
   await addDoc(collection(db, "chats", outletUid, "messages"), {
     text,
     product: cleanProduct,
+    images: cleanImages,
     senderRole: "outlet",
     createdAt: serverTimestamp(),
   });
@@ -66,7 +73,7 @@ export const sendMessage = async (
 // ── Admin replies to an outlet (text and/or product) ──
 export const sendAdminReply = async (
   outletUid,
-  { text = "", product = null } = {},
+  { text = "", product = null, images = [] } = {},
 ) => {
   const cleanProduct = product
     ? {
@@ -78,9 +85,15 @@ export const sendAdminReply = async (
       }
     : null;
 
+  const cleanImages = Array.isArray(images)
+    ? images.filter(Boolean).slice(0, 5)
+    : [];
+
   const lastMessage = cleanProduct
     ? `📦 ${cleanProduct.itemCode || cleanProduct.name}${text ? ` — ${text}` : ""}`
-    : text;
+    : cleanImages.length
+      ? `📷 ${cleanImages.length > 1 ? `${cleanImages.length} photos` : "Photo"}${text ? ` — ${text}` : ""}`
+      : text;
 
   await setDoc(
     doc(db, "chats", outletUid),
@@ -96,6 +109,7 @@ export const sendAdminReply = async (
   await addDoc(collection(db, "chats", outletUid, "messages"), {
     text,
     product: cleanProduct,
+    images: cleanImages,
     senderRole: "admin",
     createdAt: serverTimestamp(),
   });

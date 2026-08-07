@@ -396,7 +396,13 @@ export default function AdminChats() {
                   {staged.map((s) => (
                     <div
                       key={s.id}
-                      className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-dark-200 dark:border-dark-700">
+                      onClick={() =>
+                        setLightbox({
+                          images: staged.map((x) => x.preview),
+                          index: staged.findIndex((x) => x.id === s.id),
+                        })
+                      }
+                      className="relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-dark-200 dark:border-dark-700 cursor-pointer">
                       <img
                         src={s.preview}
                         alt=""
@@ -404,7 +410,10 @@ export default function AdminChats() {
                         style={{ objectFit: "cover" }}
                       />
                       <button
-                        onClick={() => removeStaged(s.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeStaged(s.id);
+                        }}
                         className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center">
                         <FiX size={10} />
                       </button>

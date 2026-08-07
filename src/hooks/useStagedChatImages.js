@@ -191,12 +191,31 @@ export default function useStagedChatImages(max = MAX_CHAT_IMAGES) {
 
   // At send time: turn staged items into final URLs. `uploadFn(file, i)`
   // should upload one file and resolve to its stored URL.
-  const resolveStagedImages = (uploadFn) =>
-    Promise.all(
-      staged.map((s, i) =>
-        s.kind === "url" ? Promise.resolve(s.url) : uploadFn(s.file, i),
-      ),
-    );
+  //
+  // Uploaded one at a time (not Promise.all) — firing several large
+  // uploads at once over the same HTTP/2 connection can trip
+  // "503 Service Unavailable" / ERR_HTTP2_PROTOCOL_ERROR /
+  // ERR_CONNECTION_RESET on flaky networks or behind some firewalls.
+  // Each upload also gets one retry before giving up, since a single
+  // dropped connection shouldn't fail the whole message.
+  const resolveStagedImages = async (uploadFn) => {
+    const results = [];
+    for (let i = 0; i < staged.length; i++) {
+      const s = staged[i];
+      if (s.kind === "url") {
+        results.push(s.url);
+        continue;
+      }
+      try {
+        results.push(await uploadFn(s.file, i));
+      } catch (err) {
+        console.warn(`Upload retrying (photo ${i + 1}/${staged.length}):`, err);
+        await new Promise((r) => setTimeout(r, 800));
+        results.push(await uploadFn(s.file, i));
+      }
+    }
+    return results;
+  };
 
   return {
     staged,
@@ -214,3 +233,4 @@ export default function useStagedChatImages(max = MAX_CHAT_IMAGES) {
     resolveStagedImages,
   };
 }
+  
