@@ -20,6 +20,10 @@ export const exportOrdersToExcel = (orders, filename = "orders") => {
     Status: o.done ? "Done" : "New",
     Date: formatOrderDate(o.createdAt),
     Remarks: o.remarks || "",
+    "Item Notes": (o.items || [])
+      .filter((i) => i.note?.trim())
+      .map((i) => `${i.itemCode || i.name}: ${i.note.trim()}`)
+      .join(" | "),
   }));
 
   // Sheet 2: line items (one row per product per order)
@@ -54,6 +58,7 @@ export const exportOrdersToExcel = (orders, filename = "orders") => {
     { wch: 8 },
     { wch: 20 },
     { wch: 30 },
+    { wch: 40 },
   ];
   ws2["!cols"] = [
     { wch: 10 },
@@ -247,6 +252,8 @@ export const exportOrderClientFormat = (order) => {
     "GST",
     "Total (ex)",
     "Total (inc)",
+    "Note",
+    "Order Remarks",
   ];
 
   const rows = items.map((i) => [
@@ -267,6 +274,8 @@ export const exportOrderClientFormat = (order) => {
     "",
     "",
     "",
+    i.note || "",
+    order.remarks || "",
   ]);
 
   const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
@@ -288,6 +297,8 @@ export const exportOrderClientFormat = (order) => {
     { wch: 6 },
     { wch: 10 },
     { wch: 11 },
+    { wch: 24 },
+    { wch: 24 },
   ];
 
   const wb = XLSX.utils.book_new();
