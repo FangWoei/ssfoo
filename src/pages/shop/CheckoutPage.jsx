@@ -3,6 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
 import { sendOrderEmails } from "@/firebase/email";
 import { placeOrder } from "@/firebase/orders";
+import { getProduct } from "@/firebase/products";
 import { formatPrice } from "@/utils/helpers";
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -24,6 +25,7 @@ export default function CheckoutPage() {
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
   const updateNote = useCartStore((s) => s.updateNote);
+  const removeItem = useCartStore((s) => s.removeItem);
 
   const [remarks, setRemarks] = useState("");
   const [placing, setPlacing] = useState(false);
@@ -56,11 +58,46 @@ export default function CheckoutPage() {
       return;
     }
 
+    setPlacing(true);
+
+    // Cart items can sit for days or weeks. Re-check each one against its
+    // live product record — if it's been drafted or deleted since it was
+    // added, don't let it slip into an order silently.
+    try {
+      const checks = await Promise.all(
+        items.map(async (item) => ({
+          item,
+          product: await getProduct(item.productId),
+        })),
+      );
+      const stale = checks.filter(
+        ({ product }) => !product || product.status !== "active",
+      );
+      if (stale.length > 0) {
+        stale.forEach(({ item }) => removeItem(item.productId));
+        const names = stale.map(({ item }) => item.name).join(", ");
+        toast.error(
+          `${stale.length > 1 ? "These items are" : "This item is"} no longer available and ${
+            stale.length > 1 ? "were" : "was"
+          } removed from your cart: ${names}. Please review your cart and try again.`,
+          { duration: 6000 },
+        );
+        setPlacing(false);
+        return;
+      }
+    } catch (e) {
+      console.error("Product availability check failed:", e);
+      toast.error("Couldn't verify product availability — please try again.");
+      setPlacing(false);
+      return;
+    }
+
     // Final MOQ validation
     for (const item of items) {
       const moq = getMoq(item);
       if (item.qty < moq) {
         toast.error(`${item.name}: minimum order quantity is ${moq}`);
+        setPlacing(false);
         return;
       }
     }
@@ -70,10 +107,10 @@ export default function CheckoutPage() {
       toast.error(
         `Minimum order is RM ${MIN_ORDER.toFixed(2)} — add RM ${(MIN_ORDER - subtotal).toFixed(2)} more to proceed`,
       );
+      setPlacing(false);
       return;
     }
 
-    setPlacing(true);
     try {
       const orderData = {
         outletId,
