@@ -1,5 +1,7 @@
 // src/context/cartStore.js
 import { loadCartFromFirestore, saveCartToFirestore } from "@/firebase/cart";
+import { getProduct } from "@/firebase/products";
+import { effectivePrice } from "@/utils/promo";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -14,11 +16,50 @@ const useCartStore = create(
         try {
           const items = await loadCartFromFirestore(userId);
           // Auto-heal legacy items with corrupted qty (NaN/string/undefined)
-          const clean = (items || []).map((i) => ({
+          let clean = (items || []).map((i) => ({
             ...i,
             qty: Number.isFinite(Number(i.qty)) ? Number(i.qty) : 1,
             price: Number.isFinite(Number(i.price)) ? Number(i.price) : 0,
           }));
+
+          // One-time repair: a checkout bug (since removed) briefly
+          // overwrote cart item prices with RM0 for anyone who tried to
+          // check out while it was live. Re-fetch the real price for any
+          // zeroed item so it doesn't stay stuck at RM0 forever.
+          const zeroed = clean.filter((i) => i.price <= 0 && i.productId);
+          if (zeroed.length > 0) {
+            const fixes = await Promise.all(
+              zeroed.map(async (i) => {
+                try {
+                  const product = await getProduct(i.productId);
+                  return {
+                    productId: i.productId,
+                    price: product ? effectivePrice(product) : null,
+                  };
+                } catch {
+                  return { productId: i.productId, price: null };
+                }
+              }),
+            );
+            const priceMap = new Map(
+              fixes
+                .filter((f) => f.price != null && f.price > 0)
+                .map((f) => [f.productId, f.price]),
+            );
+            if (priceMap.size > 0) {
+              clean = clean.map((i) =>
+                priceMap.has(i.productId)
+                  ? { ...i, price: priceMap.get(i.productId) }
+                  : i,
+              );
+              // Persist the repair so it doesn't have to run again on
+              // every future load.
+              saveCartToFirestore(userId, clean).catch((e) =>
+                console.error("Cart price repair sync failed:", e),
+              );
+            }
+          }
+
           set({ items: clean });
         } catch (e) {
           console.error("Cart load error", e);
@@ -75,17 +116,6 @@ const useCartStore = create(
       updateNote: (productId, note) => {
         const updated = get().items.map((i) =>
           i.productId === productId ? { ...i, note } : i,
-        );
-        set({ items: updated });
-        get()._sync(updated);
-      },
-
-      // Used at checkout when a live product price no longer matches
-      // what was in the cart — corrects the stale snapshot without
-      // touching qty/note.
-      updatePrice: (productId, price) => {
-        const updated = get().items.map((i) =>
-          i.productId === productId ? { ...i, price } : i,
         );
         set({ items: updated });
         get()._sync(updated);
