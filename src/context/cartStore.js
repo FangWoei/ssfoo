@@ -80,6 +80,17 @@ const useCartStore = create(
         get()._sync(updated);
       },
 
+      // Used at checkout when a live product price no longer matches
+      // what was in the cart — corrects the stale snapshot without
+      // touching qty/note.
+      updatePrice: (productId, price) => {
+        const updated = get().items.map((i) =>
+          i.productId === productId ? { ...i, price } : i,
+        );
+        set({ items: updated });
+        get()._sync(updated);
+      },
+
       clearCart: () => {
         set({ items: [] });
         get()._sync([]);

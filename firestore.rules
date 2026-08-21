@@ -22,7 +22,16 @@ service cloud.firestore {
         (isSignedIn() && (resource.data.role == 'admin' || resource.data.role == 'editor'));
       allow list: if isSignedIn();
       allow create: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
+      // Owners can edit their own profile (name/phone/address/etc), but
+      // NOT role, active, or outletId — those are privilege-sensitive
+      // fields that only an admin may set. Without this, any outlet or
+      // editor account could self-promote to admin, or reverse their own
+      // deactivation, by writing directly to their own user doc.
+      allow update: if isAdmin() ||
+        (isOwner(userId) &&
+          request.resource.data.get('role', null) == resource.data.get('role', null) &&
+          request.resource.data.get('active', null) == resource.data.get('active', null) &&
+          request.resource.data.get('outletId', null) == resource.data.get('outletId', null));
       allow delete: if isAdmin();
     }
 

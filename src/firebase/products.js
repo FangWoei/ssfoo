@@ -50,6 +50,34 @@ export const getAllProducts = async () => {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 };
 
+// ── Shared in-memory cache for getAllProducts ──
+// The full catalogue (1500-2000 docs) was being independently
+// re-fetched by ShopPage, the chat product picker (both sides), and
+// admin pages — up to 6 separate full-collection reads per session.
+// Read-only screens (Shop, chat picker) should share one fetch;
+// admin management screens should always see the latest data.
+let _productsCache = { data: null, ts: 0 };
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+export const getAllProductsCached = async ({ force = false } = {}) => {
+  const fresh =
+    !force &&
+    _productsCache.data &&
+    Date.now() - _productsCache.ts < CACHE_TTL_MS;
+  if (fresh) return _productsCache.data;
+
+  const data = await getAllProducts();
+  _productsCache = { data, ts: Date.now() };
+  return data;
+};
+
+// Call after any write (add/update/delete/bulk import) so the next
+// read anywhere in the app — even outside the TTL window — gets the
+// change immediately instead of possibly serving a stale cache.
+export const invalidateProductsCache = () => {
+  _productsCache = { data: null, ts: 0 };
+};
+
 export const getProduct = async (id) => {
   const snap = await getDoc(doc(db, COL, id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
@@ -61,36 +89,42 @@ export const getCategories = async () => {
 };
 
 export const addProduct = async (data) => {
-  return addDoc(collection(db, COL), {
+  const ref = await addDoc(collection(db, COL), {
     ...data,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  invalidateProductsCache();
+  return ref;
 };
 
 export const updateProduct = async (id, data) => {
-  return updateDoc(doc(db, COL, id), {
+  await updateDoc(doc(db, COL, id), {
     ...data,
     updatedAt: serverTimestamp(),
   });
+  invalidateProductsCache();
 };
 
 export const deleteProduct = async (id) => {
-  return deleteDoc(doc(db, COL, id));
+  await deleteDoc(doc(db, COL, id));
+  invalidateProductsCache();
 };
 
 export const bulkDeleteProducts = async (ids) => {
   const batch = writeBatch(db);
   ids.forEach((id) => batch.delete(doc(db, COL, id)));
-  return batch.commit();
+  await batch.commit();
+  invalidateProductsCache();
 };
 
 // ── Promotion toggle (#5) ────────────────────────────
 export const toggleProductPromo = async (id, isPromo) => {
-  return updateDoc(doc(db, COL, id), {
+  await updateDoc(doc(db, COL, id), {
     isPromo,
     updatedAt: serverTimestamp(),
   });
+  invalidateProductsCache();
 };
 
 // ── Brand management (stored in "brands" collection) ──
@@ -138,6 +172,7 @@ export const bulkAddProducts = async (rows, onProgress) => {
     done = Math.min(i + CHUNK, rows.length);
     onProgress?.(done, rows.length);
   }
+  invalidateProductsCache();
   return rows.length;
 };
 
@@ -159,5 +194,6 @@ export const bulkUpdateProducts = async (updates, onProgress) => {
     done = Math.min(i + CHUNK, updates.length);
     onProgress?.(done, updates.length);
   }
+  invalidateProductsCache();
   return updates.length;
 };

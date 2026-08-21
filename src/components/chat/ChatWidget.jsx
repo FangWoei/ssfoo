@@ -9,7 +9,7 @@ import {
   markReadByUser,
   sendMessage,
 } from "@/firebase/chat";
-import { getAllProducts } from "@/firebase/products";
+import { getAllProductsCached } from "@/firebase/products";
 import { uploadImage } from "@/firebase/storage";
 import useStagedChatImages, {
   MAX_CHAT_IMAGES,
@@ -69,7 +69,7 @@ export default function ChatWidget() {
     if (prods === null && !loadingProds) {
       setLoadingProds(true);
       try {
-        const all = await getAllProducts();
+        const all = await getAllProductsCached();
         setProds(all.filter((p) => p.status === "active"));
       } catch {
         setProds([]);

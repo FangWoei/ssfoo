@@ -5,6 +5,7 @@
 import {
   collection,
   doc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -24,6 +25,7 @@ export const listenMyNotifications = (userId, callback) => {
       collection(db, COL),
       where("userId", "==", userId),
       orderBy("createdAt", "desc"),
+      limit(30),
     ),
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
   );

@@ -3,7 +3,7 @@ import Pagination, { DEFAULT_PAGE_SIZE } from "@/components/common/Pagination";
 import RefreshControl from "@/components/common/RefreshControl";
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
-import { getAllProducts, getCategories } from "@/firebase/products";
+import { getAllProductsCached, getCategories } from "@/firebase/products";
 import usePersistedState from "@/hooks/usePersistedState";
 import { formatPrice, truncate } from "@/utils/helpers";
 import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
@@ -83,10 +83,10 @@ export default function ShopPage() {
   const [modal, setModal] = useState(null); // product | null
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchShop = async () => {
+  const fetchShop = async (force = false) => {
     const [cats, prods] = await Promise.all([
       getCategories(),
-      getAllProducts(),
+      getAllProductsCached({ force }),
     ]);
     setCategories(cats);
     setProducts(prods.filter((p) => p.status === "active"));
@@ -149,7 +149,7 @@ export default function ShopPage() {
   const doRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchShop();
+      await fetchShop(true);
     } catch {
       toast.error("Refresh failed");
     } finally {

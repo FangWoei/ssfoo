@@ -26,6 +26,7 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((s) => s.clearCart);
   const updateNote = useCartStore((s) => s.updateNote);
   const removeItem = useCartStore((s) => s.removeItem);
+  const updatePrice = useCartStore((s) => s.updatePrice);
 
   const [remarks, setRemarks] = useState("");
   const [placing, setPlacing] = useState(false);
@@ -61,8 +62,9 @@ export default function CheckoutPage() {
     setPlacing(true);
 
     // Cart items can sit for days or weeks. Re-check each one against its
-    // live product record — if it's been drafted or deleted since it was
-    // added, don't let it slip into an order silently.
+    // live product record — if it's been drafted/deleted, or its price has
+    // changed, since it was added, don't let that slip into an order
+    // silently.
     try {
       const checks = await Promise.all(
         items.map(async (item) => ({
@@ -80,6 +82,28 @@ export default function CheckoutPage() {
           `${stale.length > 1 ? "These items are" : "This item is"} no longer available and ${
             stale.length > 1 ? "were" : "was"
           } removed from your cart: ${names}. Please review your cart and try again.`,
+          { duration: 6000 },
+        );
+        setPlacing(false);
+        return;
+      }
+
+      // Price drift check — only meaningful for items that passed the
+      // status check above (product is guaranteed non-null here).
+      const priceChanged = checks.filter(
+        ({ item, product }) =>
+          Number(product.price || 0).toFixed(2) !==
+          Number(item.price || 0).toFixed(2),
+      );
+      if (priceChanged.length > 0) {
+        priceChanged.forEach(({ item, product }) =>
+          updatePrice(item.productId, Number(product.price || 0)),
+        );
+        const names = priceChanged.map(({ item }) => item.name).join(", ");
+        toast.error(
+          `The price for ${priceChanged.length > 1 ? "these items" : "this item"} changed and ${
+            priceChanged.length > 1 ? "have" : "has"
+          } been updated in your cart: ${names}. Please review the new total and place your order again.`,
           { duration: 6000 },
         );
         setPlacing(false);
