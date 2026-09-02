@@ -4,6 +4,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  documentId,
   getDoc,
   getDocs,
   limit,
@@ -81,6 +82,26 @@ export const invalidateProductsCache = () => {
 export const getProduct = async (id) => {
   const snap = await getDoc(doc(db, COL, id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+};
+
+// Fetch a specific set of products by document id, always from the server
+// (never the getAllProducts cache — the cart checker must see what the admin
+// changed 10 seconds ago). Firestore caps an `in` query at 30 values, so the
+// id list is chunked. Ids with no matching doc are simply absent from the
+// returned Map, which the cart checker reads as "deleted".
+export const getProductsByIds = async (ids = []) => {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const found = new Map();
+  const CHUNK = 30;
+
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const slice = unique.slice(i, i + CHUNK);
+    const snap = await getDocs(
+      query(collection(db, COL), where(documentId(), "in", slice)),
+    );
+    snap.docs.forEach((d) => found.set(d.id, { id: d.id, ...d.data() }));
+  }
+  return found;
 };
 
 export const getCategories = async () => {

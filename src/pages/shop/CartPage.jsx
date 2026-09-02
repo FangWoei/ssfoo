@@ -1,10 +1,16 @@
 // src/pages/shop/CartPage.jsx
+import CartIssueBanner from "@/components/shop/CartIssueBanner";
 import useCartStore from "@/context/cartStore";
+import useCartCheck from "@/hooks/useCartCheck";
+import { SEVERITY } from "@/utils/cartValidation";
 import { formatPrice } from "@/utils/helpers";
+import { useState } from "react";
 import toast from "react-hot-toast";
 import {
+  FiAlertCircle,
   FiArrowRight,
   FiEdit3,
+  FiLoader,
   FiMinus,
   FiPlus,
   FiShoppingBag,
@@ -22,6 +28,10 @@ export default function CartPage() {
   const updateNote = useCartStore((s) => s.updateNote);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
+
+  // Re-check every line against the live catalogue as soon as the cart opens.
+  const { result, checking, run, resolve, issuesFor } = useCartCheck();
+  const [applying, setApplying] = useState(false);
 
   const MIN_ORDER = 350;
   const subtotal = items.reduce(
@@ -63,6 +73,36 @@ export default function CartPage() {
     if (!window.confirm("Clear all items from cart?")) return;
     clearCart();
     toast.success("Cart cleared");
+  };
+
+  const handleResolve = () => {
+    setApplying(true);
+    try {
+      const removedCount = result?.removals?.length || 0;
+      resolve();
+      toast.success(
+        removedCount > 0
+          ? `Cart updated — ${removedCount} item${removedCount > 1 ? "s" : ""} removed`
+          : "Cart updated",
+      );
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  // Re-check right before leaving the cart: the admin could have changed
+  // something while this page was sitting open.
+  const handleCheckout = async () => {
+    const res = await run();
+    if (!res.ok) {
+      toast.error(
+        res.failed
+          ? "Couldn't verify your cart — please try again."
+          : "Your cart needs attention before checkout.",
+      );
+      return;
+    }
+    navigate("/checkout");
   };
 
   /* ── Empty state ── */
@@ -110,15 +150,34 @@ export default function CartPage() {
         </button>
       </div>
 
+      {/* ── Catalogue drift warning ── */}
+      <CartIssueBanner
+        result={result}
+        onResolve={handleResolve}
+        onRetry={run}
+        applying={applying}
+        className="mb-5"
+      />
+
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
         {/* ── Item list ── */}
         <div className="space-y-3">
           {items.map((item) => {
             const moq = getMoq(item);
+            const itemIssues = issuesFor(item.productId);
+            const blocked = itemIssues.some(
+              (i) => i.severity === SEVERITY.REMOVE,
+            );
             return (
               <div
                 key={item.productId}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
+                className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 transition-colors ${
+                  blocked
+                    ? "border-red-300 dark:border-red-800"
+                    : itemIssues.length > 0
+                      ? "border-amber-300 dark:border-amber-800"
+                      : "border-slate-200 dark:border-slate-800"
+                }`}>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <img
                     src={item.thumbnail || item.image || PLACEHOLDER}
@@ -201,6 +260,25 @@ export default function CartPage() {
                   </div>
                 </div>
 
+                {/* Per-item catalogue change */}
+                {itemIssues.length > 0 && (
+                  <div
+                    className={`mt-3 rounded-lg px-3 py-2 text-[11px] leading-relaxed ${
+                      blocked
+                        ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
+                        : "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300"
+                    }`}>
+                    {itemIssues.map((issue) => (
+                      <div
+                        key={issue.type}
+                        className="flex items-start gap-1.5">
+                        <FiAlertCircle size={12} className="mt-0.5 shrink-0" />
+                        <span>{issue.message}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {/* Per-item note */}
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                   <div className="relative">
@@ -253,11 +331,25 @@ export default function CartPage() {
             </div>
           )}
 
+          {result && !result.ok && (
+            <div className="mt-4 px-3 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
+              Resolve the catalogue changes above before checking out.
+            </div>
+          )}
+
           <button
-            onClick={() => navigate("/checkout")}
-            disabled={belowMin}
+            onClick={handleCheckout}
+            disabled={belowMin || checking || Boolean(result && !result.ok)}
             className="w-full mt-3 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-            Proceed to Checkout <FiArrowRight size={15} />
+            {checking ? (
+              <>
+                <FiLoader size={15} className="animate-spin" /> Checking prices…
+              </>
+            ) : (
+              <>
+                Proceed to Checkout <FiArrowRight size={15} />
+              </>
+            )}
           </button>
           <Link
             to="/shop"

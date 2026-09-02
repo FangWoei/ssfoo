@@ -1,9 +1,10 @@
 // src/pages/shop/CheckoutPage.jsx
+import CartIssueBanner from "@/components/shop/CartIssueBanner";
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
 import { sendOrderEmails } from "@/firebase/email";
 import { placeOrder } from "@/firebase/orders";
-import { getProduct } from "@/firebase/products";
+import useCartCheck from "@/hooks/useCartCheck";
 import { formatPrice } from "@/utils/helpers";
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -25,9 +26,13 @@ export default function CheckoutPage() {
   const items = useCartStore((s) => s.items);
   const clearCart = useCartStore((s) => s.clearCart);
   const updateNote = useCartStore((s) => s.updateNote);
-  const removeItem = useCartStore((s) => s.removeItem);
+
+  // Same checker the cart uses — run again here because the cart may have
+  // been sitting open for a while before the outlet hit checkout.
+  const { result, run, resolve } = useCartCheck();
 
   const [remarks, setRemarks] = useState("");
+  const [applying, setApplying] = useState(false);
   const [placing, setPlacing] = useState(false);
   const placedRef = useRef(false); // prevents empty-cart redirect after success
 
@@ -60,34 +65,19 @@ export default function CheckoutPage() {
 
     setPlacing(true);
 
-    // Cart items can sit for days or weeks. Re-check each one against its
-    // live product record — if it's been drafted or deleted since it was
-    // added, don't let it slip into an order silently.
-    try {
-      const checks = await Promise.all(
-        items.map(async (item) => ({
-          item,
-          product: await getProduct(item.productId),
-        })),
+    // Cart items can sit for days or weeks. Re-check every line against its
+    // live product record — price, availability, MOQ, FOC, brand access —
+    // so nothing gets ordered at a price the admin already changed.
+    // Nothing is removed behind the outlet's back: the banner explains what
+    // changed and they decide.
+    const check = await run();
+    if (!check.ok) {
+      toast.error(
+        check.failed
+          ? "Couldn't verify your cart — please try again."
+          : "The catalogue changed — review the notice above before ordering.",
+        { duration: 6000 },
       );
-      const stale = checks.filter(
-        ({ product }) => !product || product.status !== "active",
-      );
-      if (stale.length > 0) {
-        stale.forEach(({ item }) => removeItem(item.productId));
-        const names = stale.map(({ item }) => item.name).join(", ");
-        toast.error(
-          `${stale.length > 1 ? "These items are" : "This item is"} no longer available and ${
-            stale.length > 1 ? "were" : "was"
-          } removed from your cart: ${names}. Please review your cart and try again.`,
-          { duration: 6000 },
-        );
-        setPlacing(false);
-        return;
-      }
-    } catch (e) {
-      console.error("Product availability check failed:", e);
-      toast.error("Couldn't verify product availability — please try again.");
       setPlacing(false);
       return;
     }
@@ -171,6 +161,28 @@ export default function CheckoutPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Catalogue drift warning ── */}
+      <CartIssueBanner
+        result={result}
+        onResolve={() => {
+          setApplying(true);
+          try {
+            const removedCount = result?.removals?.length || 0;
+            resolve();
+            toast.success(
+              removedCount > 0
+                ? `Cart updated — ${removedCount} item${removedCount > 1 ? "s" : ""} removed`
+                : "Cart updated",
+            );
+          } finally {
+            setApplying(false);
+          }
+        }}
+        onRetry={run}
+        applying={applying}
+        className="mb-6"
+      />
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
         <div className="space-y-4">
@@ -313,7 +325,7 @@ export default function CheckoutPage() {
 
           <button
             onClick={handlePlaceOrder}
-            disabled={placing || belowMin}
+            disabled={placing || belowMin || Boolean(result && !result.ok)}
             className="w-full mt-3 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
             {placing ? (
               <>

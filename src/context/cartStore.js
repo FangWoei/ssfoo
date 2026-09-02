@@ -126,6 +126,21 @@ const useCartStore = create(
         get()._sync([]);
       },
 
+      // Applies the output of validateCart() in a single write: drops the
+      // items that can no longer be ordered and re-syncs the rest to the
+      // live product data (price, MOQ, FOC, name, image).
+      applyCartFixes: ({ removals = [], patches = {} } = {}) => {
+        const drop = new Set(removals);
+        const updated = get()
+          .items.filter((i) => !drop.has(i.productId))
+          .map((i) =>
+            patches[i.productId] ? { ...i, ...patches[i.productId] } : i,
+          );
+        set({ items: updated });
+        get()._sync(updated);
+        return updated;
+      },
+
       get totalItems() {
         return get().items.reduce((s, i) => s + i.qty, 0);
       },
