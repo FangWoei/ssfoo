@@ -42,26 +42,43 @@ export default function CartPage() {
   const belowMin = subtotal < MIN_ORDER;
   const shortBy = Math.max(0, MIN_ORDER - subtotal);
 
-  const getMoq = (item) => Math.max(1, item.minOrder ?? item.moq ?? 1);
+  // Valid qty = multiple of the product's qtyStep, and >= MOQ
+  const getStep = (item) => Math.max(1, Number(item.qtyStep) || 1);
+  const getMoq = (item) => {
+    const step = getStep(item);
+    const moq = Math.max(1, Number(item.minOrder ?? item.moq) || 1);
+    return Math.ceil(moq / step) * step;
+  };
+  const snapQty = (item, val) => {
+    const step = getStep(item);
+    const n = Math.trunc(Number(val));
+    if (!Number.isFinite(n)) return getMoq(item);
+    return Math.max(getMoq(item), Math.ceil(n / step) * step);
+  };
 
   const handleQty = (item, next) => {
     const n = Number(next);
     if (isNaN(n)) return;
-    next = n;
     const moq = getMoq(item);
-    if (next < moq) {
+    if (n < moq) {
       toast.error(`Minimum order quantity is ${moq}`);
       return;
     }
-    updateQty(item.productId, next);
+    updateQty(item.productId, snapQty(item, n));
   };
 
-  const handleQtyInput = (item, raw) => {
-    if (raw === "" || raw === "-") return;
-    const num = parseInt(raw, 10);
-    if (isNaN(num)) return;
-    const moq = getMoq(item);
-    updateQty(item.productId, Math.max(moq, num));
+  // Typed qty is applied on blur / Enter so "12" isn't snapped at "1"
+  const handleQtyCommit = (item, raw, el) => {
+    if (raw === "" || raw === "-") {
+      if (el) el.value = item.qty;
+      return;
+    }
+    const next = snapQty(item, raw);
+    if (next !== Number(raw)) {
+      toast(`Sold in multiples of ${getStep(item)} — set to ${next}`);
+    }
+    if (el) el.value = next;
+    if (next !== item.qty) updateQty(item.productId, next);
   };
 
   const handleRemove = (item) => {
@@ -164,6 +181,7 @@ export default function CartPage() {
         <div className="space-y-3">
           {items.map((item) => {
             const moq = getMoq(item);
+            const step = getStep(item);
             const itemIssues = issuesFor(item.productId);
             const blocked = itemIssues.some(
               (i) => i.severity === SEVERITY.REMOVE,
@@ -201,6 +219,11 @@ export default function CartPage() {
                               MOQ {moq}
                             </span>
                           )}
+                          {step > 1 && (
+                            <span className="ml-1 inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-semibold">
+                              ×{step}
+                            </span>
+                          )}
                         </p>
                       </div>
                       <button
@@ -216,23 +239,35 @@ export default function CartPage() {
                       <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
                         <button
                           onClick={() =>
-                            handleQty(item, (Number(item.qty) || 0) - 1)
+                            handleQty(item, (Number(item.qty) || 0) - step)
                           }
                           disabled={item.qty <= moq}
+                          title={`−${step}`}
                           className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                           <FiMinus size={13} />
                         </button>
                         <input
+                          key={`${item.productId}-${item.qty}`}
                           type="number"
-                          value={Number.isFinite(item.qty) ? item.qty : ""}
+                          inputMode="numeric"
+                          defaultValue={
+                            Number.isFinite(item.qty) ? item.qty : ""
+                          }
                           min={moq}
-                          onChange={(e) => handleQtyInput(item, e.target.value)}
+                          step={step}
+                          onBlur={(e) =>
+                            handleQtyCommit(item, e.target.value, e.target)
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") e.currentTarget.blur();
+                          }}
                           className="w-14 text-center text-sm font-semibold bg-transparent text-slate-900 dark:text-slate-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <button
                           onClick={() =>
-                            handleQty(item, (Number(item.qty) || 0) + 1)
+                            handleQty(item, (Number(item.qty) || 0) + step)
                           }
+                          title={`+${step}`}
                           className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                           <FiPlus size={13} />
                         </button>

@@ -22,6 +22,7 @@ export const ISSUE = {
   PRICE_UP: "price_up",
   PRICE_DOWN: "price_down",
   MOQ: "moq", // qty in cart is now below the minimum
+  STEP: "step", // qty in cart is no longer a multiple of the pack size
   FOC: "foc", // free-goods deal changed
 };
 
@@ -38,6 +39,7 @@ const num = (v, fallback = 0) =>
   Number.isFinite(Number(v)) ? Number(v) : fallback;
 
 const moqOf = (src) => Math.max(1, num(src?.minOrder ?? src?.moq, 1));
+const stepOf = (src) => Math.max(1, num(src?.qtyStep, 1));
 
 const focOf = (src) => ({
   buy: num(src?.focBuy, 0),
@@ -145,20 +147,36 @@ export function validateCart(items = [], liveById = new Map(), opts = {}) {
       });
     }
 
-    // Minimum order quantity
+    // Minimum order quantity + pack size (qtyStep)
     const liveMoq = moqOf(live);
+    const liveStep = stepOf(live);
     const qty = num(item.qty, 0);
     if (liveMoq !== moqOf(item)) patch.minOrder = liveMoq;
-    if (qty < liveMoq) {
-      patch.qty = liveMoq;
+    if (liveStep !== stepOf(item)) patch.qtyStep = liveStep;
+    // lowest valid qty = first multiple of the step that reaches the MOQ
+    const minValid = Math.ceil(liveMoq / liveStep) * liveStep;
+    if (qty < minValid) {
+      patch.qty = minValid;
       push({
         productId: id,
         name,
         type: ISSUE.MOQ,
         severity: SEVERITY.UPDATE,
         before: qty,
-        after: liveMoq,
-        message: `${name} now has a minimum of ${liveMoq} units — your cart has ${qty}.`,
+        after: minValid,
+        message: `${name} now has a minimum of ${minValid} units — your cart has ${qty}.`,
+      });
+    } else if (qty % liveStep !== 0) {
+      const next = Math.ceil(qty / liveStep) * liveStep;
+      patch.qty = next;
+      push({
+        productId: id,
+        name,
+        type: ISSUE.STEP,
+        severity: SEVERITY.UPDATE,
+        before: qty,
+        after: next,
+        message: `${name} is now sold in multiples of ${liveStep} — your ${qty} will become ${next}.`,
       });
     }
 

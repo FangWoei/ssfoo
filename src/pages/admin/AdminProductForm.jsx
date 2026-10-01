@@ -30,6 +30,9 @@ const MAX_IMAGES = 6;
 
 const QUICK_UOMS = ["PCS", "CTN", "BOX", "PKT", "DOZ", "SET", "PACK"];
 
+// How much the shop's +/- buttons move the quantity by
+const QTY_STEPS = [1, 3, 6, 12, 24];
+
 const BLANK = {
   itemCode: "",
   name: "",
@@ -43,6 +46,7 @@ const BLANK = {
   salePrice: "",
   isPromo: false,
   minOrder: 1,
+  qtyStep: 1,
   status: "draft",
   images: [],
 };
@@ -309,6 +313,9 @@ export default function AdminProductForm() {
     const name = form.name.trim();
     const price = parseFloat(form.basePrice);
     const minOrder = parseInt(form.minOrder, 10) || 1;
+    const qtyStep = QTY_STEPS.includes(Number(form.qtyStep))
+      ? Number(form.qtyStep)
+      : 1;
     const isPromo = Boolean(form.isPromo);
     const salePrice = isPromo ? parseFloat(form.salePrice) : null;
     const uom = form.uom.trim().toUpperCase();
@@ -347,6 +354,7 @@ export default function AdminProductForm() {
       salePrice: isPromo ? salePrice : null,
       isPromo,
       minOrder,
+      qtyStep,
       status,
       images: form.images,
     };
@@ -547,6 +555,51 @@ export default function AdminProductForm() {
             />
           </div>
         </div>
+
+        {/* ── Quantity step: how much each + / − click adds ── */}
+        {(() => {
+          const step = Number(form.qtyStep) || 1;
+          const moq = Math.max(1, parseInt(form.minOrder, 10) || 1);
+          const first = Math.ceil(moq / step) * step;
+          const preview = [first, first + step, first + step * 2];
+          return (
+            <div>
+              <label className={labelCls}>
+                Order in multiples of{" "}
+                <span className="normal-case font-normal">
+                  (each + / − click in the shop)
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {QTY_STEPS.map((n) => {
+                  const active = step === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, qtyStep: n }))}
+                      className={`min-w-[56px] px-3 py-2 rounded-xl text-sm font-bold border transition-colors ${
+                        active
+                          ? "bg-primary-600 border-primary-600 text-white"
+                          : "bg-dark-50 dark:bg-dark-800 border-transparent text-dark-600 dark:text-dark-300 hover:border-primary-500 hover:text-primary-600"
+                      }`}>
+                      +{n}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-dark-400 mt-1.5">
+                Outlets can order {preview.join(", ")}… {form.uom || "units"}
+              </p>
+              {first !== moq && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+                  MOQ {moq} is not a multiple of {step} — the real minimum in
+                  the shop will be {first}.
+                </p>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Promotion ── */}
