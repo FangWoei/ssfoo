@@ -14,6 +14,7 @@ import { uploadImage } from "@/firebase/storage";
 import useStagedChatImages, {
   MAX_CHAT_IMAGES,
 } from "@/hooks/useStagedChatImages";
+import { isShopVisible } from "@/utils/helpers";
 import { effectivePrice } from "@/utils/promo";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -70,7 +71,7 @@ export default function ChatWidget() {
       setLoadingProds(true);
       try {
         const all = await getAllProductsCached();
-        setProds(all.filter((p) => p.status === "active"));
+        setProds(all.filter(isShopVisible));
       } catch {
         setProds([]);
       } finally {

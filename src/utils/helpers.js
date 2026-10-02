@@ -40,6 +40,14 @@ export const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 // ── Clamp number ─────────────────────────────────────
 export const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
 
+// ── Product status ───────────────────────────────────
+// active  = in the shop, orderable
+// editing = still in the shop & orderable, flagged for admin to work on
+// draft   = hidden from the shop
+export const PRODUCT_STATUSES = ["active", "editing", "draft"];
+export const isShopVisible = (p) =>
+  p?.status === "active" || p?.status === "editing";
+
 // ── Order status ─────────────────────────────────────
 export const ORDER_STATUS = {
   pending: {

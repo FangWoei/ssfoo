@@ -75,7 +75,8 @@ export const downloadProductTemplate = (categories = [], brands = []) => {
     {
       Field: "status",
       Required: "No",
-      Notes: "active or draft (default draft)",
+      Notes:
+        "active, editing or draft (default draft). editing = still shown in shop",
     },
     {
       Field: "uom",
@@ -120,12 +121,12 @@ export const parseProductFile = async (file, categories = [], brands = []) => {
     const brandRaw = String(raw.brand || "").trim();
     const price = parseFloat(raw.basePrice);
     const minOrder = parseInt(raw.minOrder, 10);
-    const status =
-      String(raw.status || "draft")
-        .trim()
-        .toLowerCase() === "active"
-        ? "active"
-        : "draft";
+    const statusRaw = String(raw.status || "draft")
+      .trim()
+      .toLowerCase();
+    const status = ["active", "editing"].includes(statusRaw)
+      ? statusRaw
+      : "draft";
 
     // Skip fully blank rows silently
     if (!itemCode && !name && !category && !raw.basePrice) return;

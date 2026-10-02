@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
 import { getAllProductsCached, getCategories } from "@/firebase/products";
 import usePersistedState from "@/hooks/usePersistedState";
-import { formatPrice, truncate } from "@/utils/helpers";
+import { formatPrice, isShopVisible, truncate } from "@/utils/helpers";
 import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -110,7 +110,7 @@ export default function ShopPage() {
       getAllProductsCached({ force }),
     ]);
     setCategories(cats);
-    setProducts(prods.filter((p) => p.status === "active"));
+    setProducts(prods.filter(isShopVisible));
   };
 
   useEffect(() => {

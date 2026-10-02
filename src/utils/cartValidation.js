@@ -11,13 +11,14 @@
 //
 // It is a pure function — fetching is the caller's job (see useCartCheck).
 
+import { isShopVisible } from "@/utils/helpers";
 import { effectivePrice, isOnPromo } from "@/utils/promo";
 
 const EPS = 0.005; // sen-level tolerance, avoids float noise
 
 export const ISSUE = {
   REMOVED: "removed", // deleted from the catalogue
-  UNAVAILABLE: "unavailable", // status !== "active" (drafted)
+  UNAVAILABLE: "unavailable", // drafted (not active / editing)
   RESTRICTED: "restricted", // brand no longer visible to this outlet
   PRICE_UP: "price_up",
   PRICE_DOWN: "price_down",
@@ -99,7 +100,7 @@ export function validateCart(items = [], liveById = new Map(), opts = {}) {
       continue;
     }
 
-    if (live.status !== "active") {
+    if (!isShopVisible(live)) {
       result.removals.push(id);
       push({
         productId: id,

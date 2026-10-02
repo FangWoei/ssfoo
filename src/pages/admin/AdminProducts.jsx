@@ -41,7 +41,22 @@ import { Link } from "react-router-dom";
 
 const PLACEHOLDER =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96'%3E%3Crect width='96' height='96' rx='12' fill='%23ccfbf1'/%3E%3Ctext x='48' y='62' font-size='38' text-anchor='middle'%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E";
-const STATUS_FILTERS = ["all", "active", "draft"];
+const STATUS_FILTERS = ["all", "active", "editing", "draft"];
+const STATUS_LABEL = { active: "Active", editing: "Editing", draft: "Draft" };
+const STATUS_PILL = {
+  active:
+    "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400",
+  editing:
+    "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400",
+  draft: "bg-dark-100 dark:bg-dark-800 text-dark-500 dark:text-dark-400",
+};
+const STATUS_DONE = {
+  active: "activated",
+  editing: "marked as editing",
+  draft: "set to draft",
+};
+// Bulk price edit: keep the list short so the admin doesn't get lost
+const MAX_PRICE_EDIT = 15;
 const QTY_STEPS = [1, 3, 6, 12, 24];
 
 export default function AdminProducts() {
@@ -67,6 +82,7 @@ export default function AdminProducts() {
   const [previewImg, setPreviewImg] = useState(null);
   const [uoms, setUoms] = useState([]);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [priceEditOpen, setPriceEditOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -142,14 +158,20 @@ export default function AdminProducts() {
     currentPage * pageSize,
   );
 
-  const toggleStatus = async (product) => {
-    const next = product.status === "active" ? "draft" : "active";
+  const changeStatus = async (product, next) => {
+    if (next === (product.status || "draft")) return;
     try {
       await updateProduct(product.id, { status: next });
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? { ...p, status: next } : p)),
       );
-      toast.success(next === "active" ? "Published" : "Moved to draft");
+      toast.success(
+        next === "active"
+          ? "Published"
+          : next === "editing"
+            ? "Marked as editing — still visible in shop"
+            : "Moved to draft",
+      );
     } catch {
       toast.error("Failed to update status");
     }
@@ -170,10 +192,9 @@ export default function AdminProducts() {
 
   const handleBulkSetStatus = async (newStatus) => {
     if (!selected.length) return;
-    const label = newStatus === "active" ? "activate" : "set to draft";
     if (
       !window.confirm(
-        `${label.charAt(0).toUpperCase() + label.slice(1)} ${selected.length} product${selected.length > 1 ? "s" : ""}?`,
+        `Set ${selected.length} product${selected.length > 1 ? "s" : ""} to ${STATUS_LABEL[newStatus]}?`,
       )
     )
       return;
@@ -187,7 +208,7 @@ export default function AdminProducts() {
         ),
       );
       toast.success(
-        `${selected.length} product${selected.length > 1 ? "s" : ""} ${newStatus === "active" ? "activated" : "set to draft"}`,
+        `${selected.length} product${selected.length > 1 ? "s" : ""} ${STATUS_DONE[newStatus]}`,
       );
       setSelected([]);
     } catch (e) {
@@ -250,6 +271,30 @@ export default function AdminProducts() {
     toast.success(`${ids.length} product${ids.length > 1 ? "s" : ""} updated`);
     setSelected([]);
     setBulkEditOpen(false);
+  };
+
+  const openPriceEdit = () => {
+    if (selected.length > MAX_PRICE_EDIT) {
+      toast.error(
+        `Bulk price edit is max ${MAX_PRICE_EDIT} products — you selected ${selected.length}`,
+      );
+      return;
+    }
+    setPriceEditOpen(true);
+  };
+
+  // updates: [{ id, data: { basePrice, salePrice? } }] — only changed rows
+  const handleBulkPriceSave = async (updates) => {
+    await bulkUpdateProducts(updates);
+    const map = new Map(updates.map((u) => [u.id, u.data]));
+    setProducts((prev) =>
+      prev.map((p) => (map.has(p.id) ? { ...p, ...map.get(p.id) } : p)),
+    );
+    toast.success(
+      `${updates.length} price${updates.length > 1 ? "s" : ""} updated`,
+    );
+    setSelected([]);
+    setPriceEditOpen(false);
   };
 
   const handleTogglePromo = async (product) => {
@@ -441,7 +486,7 @@ export default function AdminProducts() {
                   ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-sm shadow-primary-500/25 border border-transparent"
                   : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-primary-500 hover:text-primary-600 transition-colors"
               }`}>
-              {s}
+              {s === "all" ? "All" : STATUS_LABEL[s]}
             </button>
           ))}
         </div>
@@ -465,6 +510,17 @@ export default function AdminProducts() {
               <FiSliders size={12} /> Bulk Edit
             </button>
             <button
+              onClick={openPriceEdit}
+              title={`Edit prices of up to ${MAX_PRICE_EDIT} products`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors ${
+                selected.length > MAX_PRICE_EDIT
+                  ? "bg-white/10 text-white/60 cursor-not-allowed"
+                  : "bg-white text-primary-700 hover:bg-white/90"
+              }`}>
+              RM Bulk Price
+              {selected.length > MAX_PRICE_EDIT && ` (max ${MAX_PRICE_EDIT})`}
+            </button>
+            <button
               onClick={() => handleBulkSetStatus("active")}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
               ✓ Set Active
@@ -473,6 +529,11 @@ export default function AdminProducts() {
               onClick={() => handleBulkSetStatus("draft")}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
               ✎ Set Draft
+            </button>
+            <button
+              onClick={() => handleBulkSetStatus("editing")}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
+              ✐ Set Editing
             </button>
             <button
               onClick={handleBulkDelete}
@@ -535,7 +596,6 @@ export default function AdminProducts() {
             </label>
             <div className="divide-y divide-dark-100 dark:divide-dark-800">
               {paged.map((p) => {
-                const active = p.status === "active";
                 return (
                   <div
                     key={p.id}
@@ -618,16 +678,19 @@ export default function AdminProducts() {
                         <FiTag size={15} />
                       </button>
 
-                      <button
-                        onClick={() => toggleStatus(p)}
-                        className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide transition-colors ${
-                          active
-                            ? "bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 hover:bg-primary-100"
-                            : "bg-dark-100 dark:bg-dark-800 text-dark-500 dark:text-dark-400 hover:bg-dark-200"
-                        }`}
-                        title="Click to toggle">
-                        {active ? "Active" : "Draft"}
-                      </button>
+                      <select
+                        value={p.status || "draft"}
+                        onChange={(e) => changeStatus(p, e.target.value)}
+                        title="Change status"
+                        className={`shrink-0 pl-2.5 pr-6 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border-0 outline-none cursor-pointer ${
+                          STATUS_PILL[p.status] || STATUS_PILL.draft
+                        }`}>
+                        {Object.keys(STATUS_LABEL).map((st) => (
+                          <option key={st} value={st}>
+                            {STATUS_LABEL[st]}
+                          </option>
+                        ))}
+                      </select>
 
                       <div className="flex gap-1 shrink-0">
                         <Link
@@ -765,6 +828,15 @@ export default function AdminProducts() {
           uoms={uoms}
           onClose={() => setBulkEditOpen(false)}
           onApply={handleBulkEdit}
+        />
+      )}
+
+      {/* ── Bulk price modal ── */}
+      {priceEditOpen && (
+        <BulkPriceModal
+          products={products.filter((p) => selected.includes(p.id))}
+          onClose={() => setPriceEditOpen(false)}
+          onSave={handleBulkPriceSave}
         />
       )}
 
@@ -1041,9 +1113,13 @@ function BulkEditModal({ count, categories, brands, uoms, onClose, onApply }) {
             </p>
           </BulkRow>
 
-          <BulkRow k="status" label="Status" on={on} toggle={toggle}>
+          <BulkRow
+            k="status"
+            label="Status (Editing = still shown in shop)"
+            on={on}
+            toggle={toggle}>
             <div className="flex gap-2">
-              {["active", "draft"].map((st) => (
+              {["active", "editing", "draft"].map((st) => (
                 <button
                   key={st}
                   type="button"
@@ -1078,6 +1154,249 @@ function BulkEditModal({ count, categories, brands, uoms, onClose, onApply }) {
               </>
             ) : (
               `Apply to ${count} product${count > 1 ? "s" : ""}`
+            )}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ── Bulk Price Modal ───────────────────────────────────
+// Item code + name on the left, price input on the right.
+// Products on promotion also get a promo price box.
+function BulkPriceModal({ products, onClose, onSave }) {
+  const [rows, setRows] = useState(() =>
+    products.map((p) => ({
+      id: p.id,
+      itemCode: p.itemCode || "",
+      name: p.name || "",
+      isPromo: Boolean(p.isPromo),
+      oldBase: Number(p.basePrice) || 0,
+      oldSale: p.salePrice != null ? Number(p.salePrice) : null,
+      basePrice: p.basePrice != null ? String(p.basePrice) : "",
+      salePrice: p.salePrice != null ? String(p.salePrice) : "",
+    })),
+  );
+  const [saving, setSaving] = useState(false);
+  const firstRef = useRef(null);
+
+  useEffect(() => {
+    firstRef.current?.focus();
+    firstRef.current?.select();
+  }, []);
+
+  const setField = (id, key, value) =>
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
+
+  // Validate each row; returns error text or ""
+  const rowError = (r) => {
+    const base = parseFloat(r.basePrice);
+    if (isNaN(base) || base <= 0) return "Enter a valid price";
+    if (r.isPromo) {
+      const sale = parseFloat(r.salePrice);
+      if (isNaN(sale) || sale <= 0) return "Enter a valid promo price";
+      if (sale >= base) return "Promo must be lower than price";
+    }
+    return "";
+  };
+
+  const isChanged = (r) => {
+    const base = parseFloat(r.basePrice);
+    if (Math.abs(base - r.oldBase) > 0.0001) return true;
+    if (r.isPromo) {
+      const sale = parseFloat(r.salePrice);
+      if (r.oldSale == null || Math.abs(sale - r.oldSale) > 0.0001) return true;
+    }
+    return false;
+  };
+
+  const changedCount = rows.filter((r) => !rowError(r) && isChanged(r)).length;
+  const errorCount = rows.filter((r) => rowError(r)).length;
+
+  const save = async () => {
+    if (errorCount) {
+      toast.error("Fix the highlighted prices first");
+      return;
+    }
+    const updates = rows.filter(isChanged).map((r) => {
+      const data = {
+        basePrice: Math.round(parseFloat(r.basePrice) * 100) / 100,
+      };
+      if (r.isPromo)
+        data.salePrice = Math.round(parseFloat(r.salePrice) * 100) / 100;
+      return { id: r.id, data };
+    });
+    if (!updates.length) {
+      toast("No price changed");
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(updates);
+    } catch (e) {
+      console.error("Bulk price save failed:", e);
+      toast.error("Failed to save prices");
+      setSaving(false);
+    }
+  };
+
+  // Enter moves to the next price box (like Excel), Ctrl/Cmd+Enter saves
+  const onKeyDown = (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) return save();
+    const inputs = Array.from(
+      e.currentTarget
+        .closest("[data-price-list]")
+        .querySelectorAll("input[data-price]"),
+    );
+    const i = inputs.indexOf(e.currentTarget);
+    const next = inputs[i + 1];
+    if (next) {
+      next.focus();
+      next.select();
+    } else e.currentTarget.blur();
+  };
+
+  const inputCls =
+    "w-24 px-2.5 py-2 text-sm text-right font-semibold rounded-lg bg-dark-50 dark:bg-dark-800 border outline-none transition-colors text-dark-900 dark:text-dark-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={() => !saving && onClose()}
+      />
+      <div className="relative w-full max-w-2xl bg-white dark:bg-dark-900 rounded-2xl flex flex-col max-h-[88vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div>
+            <h2 className="font-bold text-dark-900 dark:text-dark-100">
+              Bulk Price Edit · {rows.length} product
+              {rows.length > 1 ? "s" : ""}
+            </h2>
+            <p className="text-xs text-dark-400 mt-0.5">
+              Press Enter to jump to the next price.
+            </p>
+          </div>
+          <button
+            onClick={() => !saving && onClose()}
+            className="p-1.5 rounded-lg text-dark-400 hover:bg-dark-50 dark:hover:bg-dark-800">
+            <FiX size={16} />
+          </button>
+        </div>
+
+        {/* Column titles */}
+        <div className="flex items-center gap-3 px-5 py-2 border-y border-dark-100 dark:border-dark-800 bg-dark-50/60 dark:bg-dark-800/40 text-[11px] font-semibold uppercase tracking-wide text-dark-400">
+          <span className="flex-1">Item</span>
+          <span className="w-24 text-right">Price (RM)</span>
+        </div>
+
+        {/* Rows */}
+        <div
+          data-price-list
+          className="flex-1 overflow-y-auto divide-y divide-dark-100 dark:divide-dark-800">
+          {rows.map((r, idx) => {
+            const err = rowError(r);
+            const changed = !err && isChanged(r);
+            return (
+              <div key={r.id} className="flex items-start gap-3 px-5 py-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-mono font-bold text-primary-600 dark:text-primary-400">
+                    {r.itemCode || "—"}
+                  </p>
+                  <p className="text-sm text-dark-800 dark:text-dark-200 leading-snug break-words">
+                    {r.name}
+                  </p>
+                  {changed && (
+                    <p className="text-[11px] text-primary-600 dark:text-primary-400 mt-0.5 font-semibold">
+                      was {formatPrice(r.oldBase)}
+                      {r.isPromo && r.oldSale != null
+                        ? ` · promo was ${formatPrice(r.oldSale)}`
+                        : ""}
+                    </p>
+                  )}
+                  {err && (
+                    <p className="text-[11px] text-red-500 mt-0.5 font-semibold">
+                      {err}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                  <input
+                    ref={idx === 0 ? firstRef : undefined}
+                    data-price
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={r.basePrice}
+                    onChange={(e) =>
+                      setField(r.id, "basePrice", e.target.value)
+                    }
+                    onKeyDown={onKeyDown}
+                    onFocus={(e) => e.target.select()}
+                    className={`${inputCls} ${
+                      err && !(parseFloat(r.basePrice) > 0)
+                        ? "border-red-400"
+                        : changed
+                          ? "border-primary-400"
+                          : "border-transparent focus:border-primary-500"
+                    }`}
+                  />
+                  {r.isPromo && (
+                    <label className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-primary-600 dark:text-primary-400 uppercase">
+                        Promo
+                      </span>
+                      <input
+                        data-price
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0"
+                        value={r.salePrice}
+                        onChange={(e) =>
+                          setField(r.id, "salePrice", e.target.value)
+                        }
+                        onKeyDown={onKeyDown}
+                        onFocus={(e) => e.target.select()}
+                        className={`${inputCls} ${
+                          err && err.startsWith("Promo")
+                            ? "border-red-400"
+                            : "border-transparent focus:border-primary-500"
+                        }`}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-5 py-4 border-t border-dark-100 dark:border-dark-800">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="flex-1 py-2.5 rounded-xl border border-dark-200 dark:border-dark-700 text-dark-600 dark:text-dark-300 text-sm font-semibold disabled:opacity-60">
+            Cancel
+          </button>
+          <button
+            onClick={save}
+            disabled={saving || changedCount === 0 || errorCount > 0}
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white text-sm font-bold shadow-md shadow-primary-500/25 flex items-center justify-center gap-2 disabled:opacity-50 transition-all">
+            {saving ? (
+              <>
+                <FiLoader size={15} className="animate-spin" /> Saving…
+              </>
+            ) : changedCount === 0 ? (
+              "No changes yet"
+            ) : (
+              `Save ${changedCount} price${changedCount > 1 ? "s" : ""}`
             )}
           </button>
         </div>

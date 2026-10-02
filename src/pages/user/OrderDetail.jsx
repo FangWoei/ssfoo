@@ -5,7 +5,7 @@ import useCartStore from "@/context/cartStore";
 import { getOrder } from "@/firebase/orders";
 import { getProduct } from "@/firebase/products";
 import { printOrderPDF, shareOrderWhatsApp } from "@/utils/exporters";
-import { formatPrice } from "@/utils/helpers";
+import { formatPrice, isShopVisible } from "@/utils/helpers";
 import { formatOrderDate, orderLabel } from "@/utils/orderHelpers";
 import { effectivePrice, isOnPromo } from "@/utils/promo";
 import { useEffect, useState } from "react";
@@ -103,12 +103,14 @@ export default function OrderDetail() {
               try {
                 for (const it of order.items || []) {
                   const prod = await getProduct(it.productId);
-                  if (!prod || prod.status !== "active") {
+                  if (!prod || !isShopVisible(prod)) {
                     skipped.push(it.name);
                     continue;
                   }
                   const minO = prod.minOrder || 1;
-                  const qty = Math.max(it.qty, minO);
+                  // respect pack size: round up to a multiple of qtyStep
+                  const step = Math.max(1, Number(prod.qtyStep) || 1);
+                  const qty = Math.ceil(Math.max(it.qty, minO) / step) * step;
                   addItem({
                     productId: prod.id,
                     itemCode: prod.itemCode || "",
@@ -119,6 +121,7 @@ export default function OrderDetail() {
                     qty,
                     thumbnail: prod.images?.[0] || "",
                     minOrder: minO,
+                    qtyStep: step,
                     uom: prod.uom || "",
                     focBuy: prod.focBuy || 0,
                     focFree: prod.focFree || 0,

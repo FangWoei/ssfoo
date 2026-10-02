@@ -789,11 +789,18 @@ export default function AdminProductForm() {
           className="flex-1 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
           {saving ? (
             <FiLoader size={15} className="animate-spin" />
-          ) : isEdit && form.status === "active" ? (
-            "Save Changes"
+          ) : isEdit && ["active", "editing"].includes(form.status) ? (
+            "Save & Publish"
           ) : (
             "Save & Publish"
           )}
+        </button>
+        <button
+          onClick={() => handleSave("editing")}
+          disabled={saving || uploading}
+          title="Still shown in the shop — marked for admin to keep editing"
+          className="flex-1 py-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:border-amber-500 disabled:opacity-60 text-sm font-semibold transition-colors">
+          Save as Editing
         </button>
         <button
           onClick={() => handleSave("draft")}
