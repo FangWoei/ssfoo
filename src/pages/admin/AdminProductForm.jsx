@@ -31,7 +31,7 @@ const MAX_IMAGES = 6;
 const QUICK_UOMS = ["PCS", "CTN", "BOX", "PKT", "DOZ", "SET", "PACK"];
 
 // How much the shop's +/- buttons move the quantity by
-const QTY_STEPS = [1, 3, 6, 12, 24];
+const QTY_STEPS = [1, 3, 4, 6, 12, 24];
 
 const BLANK = {
   itemCode: "",
