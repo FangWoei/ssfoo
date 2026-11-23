@@ -1,16 +1,11 @@
 // src/pages/shop/CartPage.jsx
-import CartIssueBanner from "@/components/shop/CartIssueBanner";
 import useCartStore from "@/context/cartStore";
-import useCartCheck from "@/hooks/useCartCheck";
-import { SEVERITY } from "@/utils/cartValidation";
+import { useMinOrder } from "@/firebase/settings";
 import { formatPrice } from "@/utils/helpers";
-import { useState } from "react";
 import toast from "react-hot-toast";
 import {
-  FiAlertCircle,
   FiArrowRight,
   FiEdit3,
-  FiLoader,
   FiMinus,
   FiPlus,
   FiShoppingBag,
@@ -29,56 +24,35 @@ export default function CartPage() {
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
 
-  // Re-check every line against the live catalogue as soon as the cart opens.
-  const { result, checking, run, resolve, issuesFor } = useCartCheck();
-  const [applying, setApplying] = useState(false);
-
-  const MIN_ORDER = 350;
+  const { minOrder: MIN_ORDER, loading: minLoading } = useMinOrder();
   const subtotal = items.reduce(
     (s, i) => s + (Number(i.price) || 0) * (Number(i.qty) || 0),
     0,
   );
   const totalItems = items.reduce((s, i) => s + (Number(i.qty) || 0), 0);
-  const belowMin = subtotal < MIN_ORDER;
+  const belowMin = !minLoading && subtotal < MIN_ORDER;
   const shortBy = Math.max(0, MIN_ORDER - subtotal);
 
-  // Valid qty = multiple of the product's qtyStep, and >= MOQ
-  const getStep = (item) => Math.max(1, Number(item.qtyStep) || 1);
-  const getMoq = (item) => {
-    const step = getStep(item);
-    const moq = Math.max(1, Number(item.minOrder ?? item.moq) || 1);
-    return Math.ceil(moq / step) * step;
-  };
-  const snapQty = (item, val) => {
-    const step = getStep(item);
-    const n = Math.trunc(Number(val));
-    if (!Number.isFinite(n)) return getMoq(item);
-    return Math.max(getMoq(item), Math.ceil(n / step) * step);
-  };
+  const getMoq = (item) => Math.max(1, item.minOrder ?? item.moq ?? 1);
 
   const handleQty = (item, next) => {
     const n = Number(next);
     if (isNaN(n)) return;
+    next = n;
     const moq = getMoq(item);
-    if (n < moq) {
+    if (next < moq) {
       toast.error(`Minimum order quantity is ${moq}`);
       return;
     }
-    updateQty(item.productId, snapQty(item, n));
+    updateQty(item.productId, next);
   };
 
-  // Typed qty is applied on blur / Enter so "12" isn't snapped at "1"
-  const handleQtyCommit = (item, raw, el) => {
-    if (raw === "" || raw === "-") {
-      if (el) el.value = item.qty;
-      return;
-    }
-    const next = snapQty(item, raw);
-    if (next !== Number(raw)) {
-      toast(`Sold in multiples of ${getStep(item)} — set to ${next}`);
-    }
-    if (el) el.value = next;
-    if (next !== item.qty) updateQty(item.productId, next);
+  const handleQtyInput = (item, raw) => {
+    if (raw === "" || raw === "-") return;
+    const num = parseInt(raw, 10);
+    if (isNaN(num)) return;
+    const moq = getMoq(item);
+    updateQty(item.productId, Math.max(moq, num));
   };
 
   const handleRemove = (item) => {
@@ -90,36 +64,6 @@ export default function CartPage() {
     if (!window.confirm("Clear all items from cart?")) return;
     clearCart();
     toast.success("Cart cleared");
-  };
-
-  const handleResolve = () => {
-    setApplying(true);
-    try {
-      const removedCount = result?.removals?.length || 0;
-      resolve();
-      toast.success(
-        removedCount > 0
-          ? `Cart updated — ${removedCount} item${removedCount > 1 ? "s" : ""} removed`
-          : "Cart updated",
-      );
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  // Re-check right before leaving the cart: the admin could have changed
-  // something while this page was sitting open.
-  const handleCheckout = async () => {
-    const res = await run();
-    if (!res.ok) {
-      toast.error(
-        res.failed
-          ? "Couldn't verify your cart — please try again."
-          : "Your cart needs attention before checkout.",
-      );
-      return;
-    }
-    navigate("/checkout");
   };
 
   /* ── Empty state ── */
@@ -167,35 +111,15 @@ export default function CartPage() {
         </button>
       </div>
 
-      {/* ── Catalogue drift warning ── */}
-      <CartIssueBanner
-        result={result}
-        onResolve={handleResolve}
-        onRetry={run}
-        applying={applying}
-        className="mb-5"
-      />
-
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
         {/* ── Item list ── */}
         <div className="space-y-3">
           {items.map((item) => {
             const moq = getMoq(item);
-            const step = getStep(item);
-            const itemIssues = issuesFor(item.productId);
-            const blocked = itemIssues.some(
-              (i) => i.severity === SEVERITY.REMOVE,
-            );
             return (
               <div
                 key={item.productId}
-                className={`bg-white dark:bg-slate-900 border rounded-2xl p-4 transition-colors ${
-                  blocked
-                    ? "border-red-300 dark:border-red-800"
-                    : itemIssues.length > 0
-                      ? "border-amber-300 dark:border-amber-800"
-                      : "border-slate-200 dark:border-slate-800"
-                }`}>
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <img
                     src={item.thumbnail || item.image || PLACEHOLDER}
@@ -219,11 +143,6 @@ export default function CartPage() {
                               MOQ {moq}
                             </span>
                           )}
-                          {step > 1 && (
-                            <span className="ml-1 inline-block px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-semibold">
-                              ×{step}
-                            </span>
-                          )}
                         </p>
                       </div>
                       <button
@@ -239,35 +158,23 @@ export default function CartPage() {
                       <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
                         <button
                           onClick={() =>
-                            handleQty(item, (Number(item.qty) || 0) - step)
+                            handleQty(item, (Number(item.qty) || 0) - 1)
                           }
                           disabled={item.qty <= moq}
-                          title={`−${step}`}
                           className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                           <FiMinus size={13} />
                         </button>
                         <input
-                          key={`${item.productId}-${item.qty}`}
                           type="number"
-                          inputMode="numeric"
-                          defaultValue={
-                            Number.isFinite(item.qty) ? item.qty : ""
-                          }
+                          value={Number.isFinite(item.qty) ? item.qty : ""}
                           min={moq}
-                          step={step}
-                          onBlur={(e) =>
-                            handleQtyCommit(item, e.target.value, e.target)
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") e.currentTarget.blur();
-                          }}
+                          onChange={(e) => handleQtyInput(item, e.target.value)}
                           className="w-14 text-center text-sm font-semibold bg-transparent text-slate-900 dark:text-slate-100 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                         <button
                           onClick={() =>
-                            handleQty(item, (Number(item.qty) || 0) + step)
+                            handleQty(item, (Number(item.qty) || 0) + 1)
                           }
-                          title={`+${step}`}
                           className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                           <FiPlus size={13} />
                         </button>
@@ -294,25 +201,6 @@ export default function CartPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Per-item catalogue change */}
-                {itemIssues.length > 0 && (
-                  <div
-                    className={`mt-3 rounded-lg px-3 py-2 text-[11px] leading-relaxed ${
-                      blocked
-                        ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300"
-                        : "bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300"
-                    }`}>
-                    {itemIssues.map((issue) => (
-                      <div
-                        key={issue.type}
-                        className="flex items-start gap-1.5">
-                        <FiAlertCircle size={12} className="mt-0.5 shrink-0" />
-                        <span>{issue.message}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 {/* Per-item note */}
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -366,25 +254,11 @@ export default function CartPage() {
             </div>
           )}
 
-          {result && !result.ok && (
-            <div className="mt-4 px-3 py-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300">
-              Resolve the catalogue changes above before checking out.
-            </div>
-          )}
-
           <button
-            onClick={handleCheckout}
-            disabled={belowMin || checking || Boolean(result && !result.ok)}
+            onClick={() => navigate("/checkout")}
+            disabled={belowMin || minLoading}
             className="w-full mt-3 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
-            {checking ? (
-              <>
-                <FiLoader size={15} className="animate-spin" /> Checking prices…
-              </>
-            ) : (
-              <>
-                Proceed to Checkout <FiArrowRight size={15} />
-              </>
-            )}
+            Proceed to Checkout <FiArrowRight size={15} />
           </button>
           <Link
             to="/shop"

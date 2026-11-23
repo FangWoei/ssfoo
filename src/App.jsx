@@ -39,6 +39,7 @@ const AdminOutlets = lazy(() => import("@/pages/admin/AdminOutlets"));
 const AdminCategories = lazy(() => import("@/pages/admin/AdminCategories"));
 const AdminChats = lazy(() => import("@/pages/admin/AdminChats"));
 const AdminEditors = lazy(() => import("@/pages/admin/AdminEditors"));
+const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 
 const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 
@@ -157,6 +158,14 @@ export default function App() {
               element={
                 <AdminRoute>
                   <AdminEditors />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <AdminRoute>
+                  <AdminSettings />
                 </AdminRoute>
               }
             />

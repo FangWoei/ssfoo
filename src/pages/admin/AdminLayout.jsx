@@ -16,6 +16,7 @@ import {
   FiMenu,
   FiMessageCircle,
   FiMoon,
+  FiSettings,
   FiShoppingBag,
   FiSun,
   FiTag,
@@ -45,6 +46,12 @@ const NAV_FULL = [
     to: "/admin/chats",
     label: "Chats",
     icon: FiMessageCircle,
+    adminOnly: true,
+  },
+  {
+    to: "/admin/settings",
+    label: "Settings",
+    icon: FiSettings,
     adminOnly: true,
   },
 ];
