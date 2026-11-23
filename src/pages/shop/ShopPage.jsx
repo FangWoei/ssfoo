@@ -798,6 +798,28 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
   const promo = isOnPromo(product);
   const [qty, setQty] = useState(min);
   const [selImg, setSelImg] = useState(0);
+  const touchRef = useRef(null);
+  // Swipe left/right on the photo to change image (phone / iPad)
+  const goImg = (dir) => {
+    const total = product.images?.length || 0;
+    if (total < 2) return;
+    setSelImg((i) => (i + dir + total) % total);
+  };
+  const onTouchStart = (e) => {
+    const t = e.touches[0];
+    touchRef.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e) => {
+    const start = touchRef.current;
+    touchRef.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      goImg(dx < 0 ? 1 : -1);
+    }
+  };
 
   const finalQty = () => snapQty(qty, step, min, max);
 
@@ -843,7 +865,11 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
             </div>
           )}
 
-          <div className="w-full aspect-square sm:aspect-auto sm:h-full sm:max-h-[90vh] flex items-center justify-center overflow-hidden">
+          <div
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            style={{ touchAction: "pan-y" }}
+            className="w-full aspect-square sm:aspect-auto sm:h-full sm:max-h-[90vh] flex items-center justify-center overflow-hidden">
             {product.images?.[selImg] ? (
               <img
                 src={product.images[selImg]}
@@ -860,17 +886,22 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
 
           {/* Thumbnails overlay */}
           {product.images?.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 bg-white/80 dark:bg-dark-900/80 backdrop-blur px-2 py-1.5 rounded-full">
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center bg-white/80 dark:bg-dark-900/80 backdrop-blur px-1 rounded-full">
               {product.images.map((img, i) => (
                 <button
                   key={i}
+                  type="button"
+                  aria-label={`Photo ${i + 1}`}
                   onClick={() => setSelImg(i)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    selImg === i
-                      ? "bg-primary-600 w-5"
-                      : "bg-dark-300 dark:bg-dark-600"
-                  }`}
-                />
+                  className="p-2 flex items-center justify-center">
+                  <span
+                    className={`block h-2 rounded-full transition-all ${
+                      selImg === i
+                        ? "bg-primary-600 w-5"
+                        : "bg-dark-300 dark:bg-dark-600 w-2"
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           )}
