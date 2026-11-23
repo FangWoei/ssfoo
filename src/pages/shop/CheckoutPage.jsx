@@ -1,9 +1,11 @@
 // src/pages/shop/CheckoutPage.jsx
+import CartIssueBanner from "@/components/shop/CartIssueBanner";
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
 import { sendOrderEmails } from "@/firebase/email";
 import { placeOrder } from "@/firebase/orders";
 import { useMinOrder } from "@/firebase/settings";
+import useCartCheck from "@/hooks/useCartCheck";
 import { formatPrice } from "@/utils/helpers";
 import { useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -26,7 +28,12 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((s) => s.clearCart);
   const updateNote = useCartStore((s) => s.updateNote);
 
+  // Same checker the cart uses — run again here because the cart may have
+  // been sitting open for a while before the outlet hit checkout.
+  const { result, run, resolve } = useCartCheck();
+
   const [remarks, setRemarks] = useState("");
+  const [applying, setApplying] = useState(false);
   const [placing, setPlacing] = useState(false);
   const placedRef = useRef(false); // prevents empty-cart redirect after success
 
@@ -57,11 +64,31 @@ export default function CheckoutPage() {
       return;
     }
 
+    setPlacing(true);
+
+    // Cart items can sit for days or weeks. Re-check every line against its
+    // live product record — price, availability, MOQ, FOC, brand access —
+    // so nothing gets ordered at a price the admin already changed.
+    // Nothing is removed behind the outlet's back: the banner explains what
+    // changed and they decide.
+    const check = await run();
+    if (!check.ok) {
+      toast.error(
+        check.failed
+          ? "Couldn't verify your cart — please try again."
+          : "The catalogue changed — review the notice above before ordering.",
+        { duration: 6000 },
+      );
+      setPlacing(false);
+      return;
+    }
+
     // Final MOQ validation
     for (const item of items) {
       const moq = getMoq(item);
       if (item.qty < moq) {
         toast.error(`${item.name}: minimum order quantity is ${moq}`);
+        setPlacing(false);
         return;
       }
     }
@@ -71,10 +98,10 @@ export default function CheckoutPage() {
       toast.error(
         `Minimum order is RM ${MIN_ORDER.toFixed(2)} — add RM ${(MIN_ORDER - subtotal).toFixed(2)} more to proceed`,
       );
+      setPlacing(false);
       return;
     }
 
-    setPlacing(true);
     try {
       const orderData = {
         outletId,
@@ -135,6 +162,28 @@ export default function CheckoutPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Catalogue drift warning ── */}
+      <CartIssueBanner
+        result={result}
+        onResolve={() => {
+          setApplying(true);
+          try {
+            const removedCount = result?.removals?.length || 0;
+            resolve();
+            toast.success(
+              removedCount > 0
+                ? `Cart updated — ${removedCount} item${removedCount > 1 ? "s" : ""} removed`
+                : "Cart updated",
+            );
+          } finally {
+            setApplying(false);
+          }
+        }}
+        onRetry={run}
+        applying={applying}
+        className="mb-6"
+      />
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
         <div className="space-y-4">
@@ -277,7 +326,9 @@ export default function CheckoutPage() {
 
           <button
             onClick={handlePlaceOrder}
-            disabled={placing || belowMin || minLoading}
+            disabled={
+              placing || belowMin || minLoading || Boolean(result && !result.ok)
+            }
             className="w-full mt-3 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
             {placing ? (
               <>

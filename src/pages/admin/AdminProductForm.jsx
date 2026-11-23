@@ -31,6 +31,9 @@ const MAX_IMAGES = 6;
 
 const QUICK_UOMS = ["PCS", "CTN", "BOX", "PKT", "DOZ", "SET", "PACK"];
 
+// How much the shop's +/- buttons move the quantity by
+const QTY_STEPS = [1, 3, 4, 6, 12, 24];
+
 const BLANK = {
   itemCode: "",
   name: "",
@@ -45,6 +48,7 @@ const BLANK = {
   isPromo: false,
   isNew: false,
   minOrder: 1,
+  qtyStep: 1,
   status: "draft",
   images: [],
 };
@@ -69,6 +73,7 @@ export default function AdminProductForm() {
   const [uomModal, setUomModal] = useState(false);
   const [newUom, setNewUom] = useState("");
   const [savingUom, setSavingUom] = useState(false);
+  const [dragIdx, setDragIdx] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -244,6 +249,32 @@ export default function AdminProductForm() {
   const removeImage = (idx) =>
     setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
 
+  // ── Drag-to-reorder images (mouse drag, e.g. pull last photo to front to make it MAIN) ──
+  const handleImgDragStart = (idx) => (e) => {
+    setDragIdx(idx);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleImgDragOver = (idx) => (e) => {
+    e.preventDefault(); // required to allow a drop
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleImgDrop = (idx) => (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // don't let it bubble to the upload dropzone's onDrop
+    if (dragIdx === null || dragIdx === idx) return;
+    setForm((f) => {
+      const imgs = [...f.images];
+      const [moved] = imgs.splice(dragIdx, 1);
+      imgs.splice(idx, 0, moved);
+      return { ...f, images: imgs };
+    });
+    setDragIdx(null);
+  };
+
+  const handleImgDragEnd = () => setDragIdx(null);
+
   const handleAddUom = async (rawName) => {
     const name = (rawName ?? newUom).trim().toUpperCase();
     if (!name) return;
@@ -284,6 +315,9 @@ export default function AdminProductForm() {
     const name = form.name.trim();
     const price = parseFloat(form.basePrice);
     const minOrder = parseInt(form.minOrder, 10) || 1;
+    const qtyStep = QTY_STEPS.includes(Number(form.qtyStep))
+      ? Number(form.qtyStep)
+      : 1;
     const isPromo = Boolean(form.isPromo);
     const salePrice = isPromo ? parseFloat(form.salePrice) : null;
     const uom = form.uom.trim().toUpperCase();
@@ -323,6 +357,7 @@ export default function AdminProductForm() {
       isPromo,
       isNew: Boolean(form.isNew),
       minOrder,
+      qtyStep,
       status,
       images: form.images,
     };
@@ -523,6 +558,51 @@ export default function AdminProductForm() {
             />
           </div>
         </div>
+
+        {/* ── Quantity step: how much each + / − click adds ── */}
+        {(() => {
+          const step = Number(form.qtyStep) || 1;
+          const moq = Math.max(1, parseInt(form.minOrder, 10) || 1);
+          const first = Math.ceil(moq / step) * step;
+          const preview = [first, first + step, first + step * 2];
+          return (
+            <div>
+              <label className={labelCls}>
+                Order in multiples of{" "}
+                <span className="normal-case font-normal">
+                  (each + / − click in the shop)
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {QTY_STEPS.map((n) => {
+                  const active = step === n;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, qtyStep: n }))}
+                      className={`min-w-[56px] px-3 py-2 rounded-xl text-sm font-bold border transition-colors ${
+                        active
+                          ? "bg-primary-600 border-primary-600 text-white"
+                          : "bg-dark-50 dark:bg-dark-800 border-transparent text-dark-600 dark:text-dark-300 hover:border-primary-500 hover:text-primary-600"
+                      }`}>
+                      +{n}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-dark-400 mt-1.5">
+                Outlets can order {preview.join(", ")}… {form.uom || "units"}
+              </p>
+              {first !== moq && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+                  MOQ {moq} is not a multiple of {step} — the real minimum in
+                  the shop will be {first}.
+                </p>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── NEW tag ── */}
@@ -613,13 +693,22 @@ export default function AdminProductForm() {
 
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
           {form.images.map((url, idx) => (
-            <div key={idx} className="relative group aspect-square">
+            <div
+              key={url + idx}
+              draggable
+              onDragStart={handleImgDragStart(idx)}
+              onDragOver={handleImgDragOver(idx)}
+              onDrop={handleImgDrop(idx)}
+              onDragEnd={handleImgDragEnd}
+              onClick={() => setPreviewImg(url)}
+              title="Drag to reorder · click to enlarge"
+              className={`relative group aspect-square cursor-grab active:cursor-grabbing cursor-zoom-in ${
+                dragIdx === idx ? "opacity-40" : ""
+              }`}>
               <img
                 src={url}
                 alt=""
-                onClick={() => setPreviewImg(url)}
-                title="Click to enlarge"
-                className="w-full h-full rounded-xl object-contain bg-white border border-dark-100 dark:border-dark-700 cursor-zoom-in"
+                className="w-full h-full rounded-xl object-contain bg-white border border-dark-100 dark:border-dark-700 pointer-events-none"
               />
               {idx === 0 && (
                 <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-primary-600 text-white text-[9px] font-bold">
@@ -627,7 +716,10 @@ export default function AdminProductForm() {
                 </span>
               )}
               <button
-                onClick={() => removeImage(idx)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeImage(idx);
+                }}
                 className="absolute top-1 right-1 p-1.5 rounded-lg bg-black/50 text-white opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-all">
                 <FiTrash2 size={12} />
               </button>
@@ -705,7 +797,9 @@ export default function AdminProductForm() {
             </div>
             <p className="text-[11px] text-dark-400 mt-1.5">
               💡 Tip: right-click any image online → <b>Copy image</b> → press{" "}
-              <b>Ctrl+V</b> here, or drag the image onto the upload box.
+              <b>Ctrl+V</b> here, or drag the image onto the upload box. Drag a
+              photo onto another to reorder — the first one is the shop
+              thumbnail (MAIN).
             </p>
           </div>
         )}
@@ -722,11 +816,18 @@ export default function AdminProductForm() {
           className="flex-1 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 disabled:opacity-60 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
           {saving ? (
             <FiLoader size={15} className="animate-spin" />
-          ) : isEdit && form.status === "active" ? (
-            "Save Changes"
+          ) : isEdit && ["active", "editing"].includes(form.status) ? (
+            "Save & Publish"
           ) : (
             "Save & Publish"
           )}
+        </button>
+        <button
+          onClick={() => handleSave("editing")}
+          disabled={saving || uploading}
+          title="Still shown in the shop — marked for admin to keep editing"
+          className="flex-1 py-3 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 hover:border-amber-500 disabled:opacity-60 text-sm font-semibold transition-colors">
+          Save as Editing
         </button>
         <button
           onClick={() => handleSave("draft")}

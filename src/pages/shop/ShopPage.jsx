@@ -3,9 +3,9 @@ import Pagination, { DEFAULT_PAGE_SIZE } from "@/components/common/Pagination";
 import RefreshControl from "@/components/common/RefreshControl";
 import { useAuth } from "@/context/AuthContext";
 import useCartStore from "@/context/cartStore";
-import { getAllProducts, getCategories } from "@/firebase/products";
+import { getAllProductsCached, getCategories } from "@/firebase/products";
 import usePersistedState from "@/hooks/usePersistedState";
-import { formatPrice, truncate } from "@/utils/helpers";
+import { formatPrice, isShopVisible, truncate } from "@/utils/helpers";
 import { discountPct, effectivePrice, isOnPromo } from "@/utils/promo";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -24,6 +24,27 @@ import {
 
 // Max quantity a user can add per product in one go
 const MAX_QTY = 500;
+
+// ── Quantity step helpers ──
+// Admin sets qtyStep (1/3/6/12/24) per product. Valid quantities are
+// multiples of the step that are >= MOQ, e.g. MOQ 3 + step 6 → 6, 12, 18…
+const stepOf = (p) => Math.max(1, Number(p?.qtyStep) || 1);
+const minQtyOf = (p) => {
+  const step = stepOf(p);
+  const moq = Math.max(1, Number(p?.minOrder) || 1);
+  return Math.ceil(moq / step) * step;
+};
+const maxQtyOf = (p) => {
+  const step = stepOf(p);
+  return Math.max(minQtyOf(p), Math.floor(MAX_QTY / step) * step);
+};
+// Snap any number to a valid quantity (rounds UP to the next multiple)
+const snapQty = (val, step, min, max) => {
+  const n = Number(val);
+  if (val === "" || !Number.isFinite(n)) return min;
+  const snapped = Math.ceil(Math.trunc(n) / step) * step;
+  return Math.min(max, Math.max(min, snapped));
+};
 
 // Responsive columns without CSS breakpoints (works even if the
 // stylesheet is stale): <768px → 2, <1024px → 4, ≥1024px → 6
@@ -84,13 +105,13 @@ export default function ShopPage() {
   const [modal, setModal] = useState(null); // product | null
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchShop = async () => {
+  const fetchShop = async (force = false) => {
     const [cats, prods] = await Promise.all([
       getCategories(),
-      getAllProducts(),
+      getAllProductsCached({ force }),
     ]);
     setCategories(cats);
-    setProducts(prods.filter((p) => p.status === "active"));
+    setProducts(prods.filter(isShopVisible));
   };
 
   useEffect(() => {
@@ -150,7 +171,7 @@ export default function ShopPage() {
   const doRefresh = async () => {
     setRefreshing(true);
     try {
-      await fetchShop();
+      await fetchShop(true);
     } catch {
       toast.error("Refresh failed");
     } finally {
@@ -236,12 +257,18 @@ export default function ShopPage() {
 
   const handleAdd = (product, qty) => {
     const min = product.minOrder || 1;
-    if (qty < min) {
-      toast.error(`Minimum order is ${min} units`);
+    const step = stepOf(product);
+    const max = maxQtyOf(product);
+    if (qty < minQtyOf(product)) {
+      toast.error(`Minimum order is ${minQtyOf(product)} units`);
       return;
     }
-    if (qty > MAX_QTY) {
-      toast.error(`Maximum order is ${MAX_QTY} units`);
+    if (qty % step !== 0) {
+      toast.error(`This product is sold in multiples of ${step}`);
+      return;
+    }
+    if (qty > max) {
+      toast.error(`Maximum order is ${max} units`);
       return;
     }
     addItem({
@@ -254,6 +281,7 @@ export default function ShopPage() {
       qty,
       thumbnail: product.images?.[0] || "",
       minOrder: min,
+      qtyStep: step,
       uom: product.uom || "",
       focBuy: product.focBuy || 0,
       focFree: product.focFree || 0,
@@ -580,15 +608,13 @@ export default function ShopPage() {
 // ── Quantity Stepper (click +/- OR type a number directly) ──
 // Shared by the grid card and the info modal so behavior stays
 // consistent: typing "50" jumps straight there instead of 50 clicks.
-function QtyStepper({ qty, setQty, min, max, size = "sm" }) {
-  const clamp = (val) => {
-    if (val === "" || isNaN(val)) return min;
-    return Math.min(max, Math.max(min, Math.trunc(val)));
-  };
+function QtyStepper({ qty, setQty, min, max, step = 1, size = "sm" }) {
+  const clamp = (val) => snapQty(val, step, min, max);
 
   const isSm = size === "sm";
   const btnPad = isSm ? "px-2 py-1.5" : "px-3 py-3";
   const inputPad = isSm ? "px-1 py-1.5 text-xs w-12" : "px-2 py-3 text-sm w-16";
+  const numQty = Number(qty) || 0;
 
   return (
     <div
@@ -597,8 +623,9 @@ function QtyStepper({ qty, setQty, min, max, size = "sm" }) {
       }`}>
       <button
         type="button"
-        onClick={() => setQty((q) => clamp(Number(q) - 1))}
-        disabled={qty <= min}
+        onClick={() => setQty((q) => clamp(Number(q) - step))}
+        disabled={numQty <= min}
+        title={`−${step}`}
         className={`${btnPad} hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors`}>
         <FiMinus size={isSm ? 12 : 14} />
       </button>
@@ -608,16 +635,18 @@ function QtyStepper({ qty, setQty, min, max, size = "sm" }) {
         value={qty}
         min={min}
         max={max}
+        step={step}
         onChange={(e) =>
           setQty(e.target.value === "" ? "" : Number(e.target.value))
         }
-        onBlur={(e) => setQty(clamp(Number(e.target.value)))}
+        onBlur={(e) => setQty(clamp(e.target.value))}
         className={`${inputPad} font-semibold text-dark-900 dark:text-dark-100 text-center border-x border-dark-200 dark:border-dark-700 bg-transparent outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
       />
       <button
         type="button"
-        onClick={() => setQty((q) => clamp(Number(q) + 1))}
-        disabled={qty >= max}
+        onClick={() => setQty((q) => clamp(Number(q) + step))}
+        disabled={numQty >= max}
+        title={`+${step}`}
         className={`${btnPad} hover:bg-dark-50 dark:hover:bg-dark-800 disabled:opacity-40 transition-colors`}>
         <FiPlus size={isSm ? 12 : 14} />
       </button>
@@ -628,13 +657,12 @@ function QtyStepper({ qty, setQty, min, max, size = "sm" }) {
 // ── Grid Card ─────────────────────────────────────────
 function ProductCard({ product, cartItem, onAdd, onInfo }) {
   const { user, isOutlet } = useAuth();
-  const min = product.minOrder || 1;
+  const step = stepOf(product);
+  const min = minQtyOf(product);
+  const max = maxQtyOf(product);
   const [qty, setQty] = useState(min);
 
-  const finalQty = () => {
-    if (qty === "" || isNaN(qty)) return min;
-    return Math.min(MAX_QTY, Math.max(min, Math.trunc(Number(qty))));
-  };
+  const finalQty = () => snapQty(qty, step, min, max);
 
   return (
     <div className="card dark:bg-dark-900 dark:border-dark-800 overflow-hidden group hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800 transition-all duration-200 flex flex-col">
@@ -681,7 +709,13 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
         {/* Cart badge */}
         {cartItem && (
           <div
-            className={`absolute ${isOnPromo(product) ? "top-9" : "top-2"} left-2 bg-dark-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+            className={`absolute ${
+              (product.isNew ? 1 : 0) + (isOnPromo(product) ? 1 : 0) === 2
+                ? "top-14"
+                : product.isNew || isOnPromo(product)
+                  ? "top-9"
+                  : "top-2"
+            } left-2 bg-dark-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
             {cartItem.qty} in cart
           </div>
         )}
@@ -715,9 +749,15 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
               {formatPrice(product.basePrice)}
             </p>
           )}
-          {min > 1 && (
+          {(min > 1 || step > 1) && (
             <p className="text-[11px] text-amber-600 dark:text-amber-400">
-              Min: {min} {product.uom || "units"}
+              {min > 1 && (
+                <>
+                  Min: {min} {product.uom || "units"}
+                </>
+              )}
+              {min > 1 && step > 1 && " · "}
+              {step > 1 && <>Pack of {step}</>}
             </p>
           )}
           {product.focBuy > 0 && product.focFree > 0 && (
@@ -733,7 +773,8 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
             qty={qty}
             setQty={setQty}
             min={min}
-            max={MAX_QTY}
+            max={max}
+            step={step}
             size="sm"
           />
           <button
@@ -751,15 +792,14 @@ function ProductCard({ product, cartItem, onAdd, onInfo }) {
 // ── Info Modal (redesigned, responsive) ───────────────
 function ProductModal({ product, cartItem, onAdd, onClose }) {
   const { isOutlet } = useAuth();
-  const min = product.minOrder || 1;
+  const step = stepOf(product);
+  const min = minQtyOf(product);
+  const max = maxQtyOf(product);
   const promo = isOnPromo(product);
   const [qty, setQty] = useState(min);
   const [selImg, setSelImg] = useState(0);
 
-  const finalQty = () => {
-    if (qty === "" || isNaN(qty)) return min;
-    return Math.min(MAX_QTY, Math.max(min, Math.trunc(Number(qty))));
-  };
+  const finalQty = () => snapQty(qty, step, min, max);
 
   // Lock body scroll while open
   useEffect(() => {
@@ -889,6 +929,11 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
                   Min order: {min} {product.uom || "units"}
                 </span>
               )}
+              {step > 1 && (
+                <span className="text-xs font-medium text-dark-500 dark:text-dark-400 bg-dark-100 dark:bg-dark-800 px-2.5 py-1 rounded-full">
+                  Sold in multiples of {step}
+                </span>
+              )}
               {product.focBuy > 0 && product.focFree > 0 && (
                 <span className="text-xs font-semibold text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 px-2.5 py-1 rounded-full">
                   🎁 Buy {product.focBuy} Free {product.focFree}
@@ -932,7 +977,8 @@ function ProductModal({ product, cartItem, onAdd, onClose }) {
                 qty={qty}
                 setQty={setQty}
                 min={min}
-                max={MAX_QTY}
+                max={max}
+                step={step}
                 size="lg"
               />
               <button
