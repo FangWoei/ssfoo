@@ -190,6 +190,25 @@ export default function AdminProducts() {
     }
   };
 
+  const handleBulkSetNew = async (flag) => {
+    if (!selected.length) return;
+    try {
+      await Promise.all(
+        selected.map((id) => updateProduct(id, { isNew: flag })),
+      );
+      setProducts((prev) =>
+        prev.map((p) => (selected.includes(p.id) ? { ...p, isNew: flag } : p)),
+      );
+      toast.success(
+        `${selected.length} product${selected.length > 1 ? "s" : ""} ${flag ? "marked NEW" : "NEW tag removed"}`,
+      );
+      setSelected([]);
+    } catch (e) {
+      console.error("Bulk NEW change failed:", e);
+      toast.error("Some updates failed — try again");
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (
       !window.confirm(
@@ -451,6 +470,16 @@ export default function AdminProducts() {
               onClick={() => handleBulkSetStatus("draft")}
               className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
               ✎ Set Draft
+            </button>
+            <button
+              onClick={() => handleBulkSetNew(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
+              ⭐ Mark NEW
+            </button>
+            <button
+              onClick={() => handleBulkSetNew(false)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/15 hover:bg-white/25 transition-colors">
+              Remove NEW
             </button>
             <button
               onClick={handleBulkDelete}
